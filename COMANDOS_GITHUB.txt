@@ -74,7 +74,7 @@ git push -u origin main
 ------------------------------------------------------------
  3. SUBIR ACTUALIZACION DEL SISTEMA (auto-update)
 ------------------------------------------------------------
-# El updater ahora usa SIDE-BY-S-side:
+# El updater ahora usa SIDE-BY-SIDE:
 #   versions\<nueva>\  +  current.txt  +  INICIAR.bat
 # No pisa el EXE en uso. La app cierra sola y relanza la nueva.
 
