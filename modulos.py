@@ -129,23 +129,23 @@ def barra_navegacion(ventana, parent, actual=None):
         if nombre != "inicio":
             abrir_modulo(parent, nombre)
 
-        try:
-            from config_paths import load_config as _lc
-            hidden = set(_lc().get("hidden_modules") or [])
-        except Exception:
-            hidden = set()
-        mods = [
-            ("INICIO", "inicio", "#2E7D32"),
-            ("POS", "pos", "#FF6F00"),
-            ("PROD", "productos", "#1565C0"),
-            ("KARDEX", "kardex", "#C62828"),
-            ("FACTURA", "facturacion", "#00838F"),
-            ("CLIENTES", "clientes", "#6A1B9A"),
-            ("REPORTES", "reportes", "#E65100"),
-            ("GRAFICOS", "graficos", "#7B1FA2"),
-            ("CONFIG", "config", "#546E7A"),
-        ]
-        mods = [m for m in mods if m[1] == "inicio" or m[1] == "config" or m[1] not in hidden]
+    try:
+        from config_paths import load_config as _lc
+        hidden = set(_lc().get("hidden_modules") or [])
+    except Exception:
+        hidden = set()
+    mods = [
+        ("INICIO", "inicio", "#2E7D32"),
+        ("POS", "pos", "#FF6F00"),
+        ("PROD", "productos", "#1565C0"),
+        ("KARDEX", "kardex", "#C62828"),
+        ("FACTURA", "facturacion", "#00838F"),
+        ("CLIENTES", "clientes", "#6A1B9A"),
+        ("REPORTES", "reportes", "#E65100"),
+        ("GRAFICOS", "graficos", "#7B1FA2"),
+        ("CONFIG", "config", "#546E7A"),
+    ]
+    mods = [m for m in mods if m[1] == "inicio" or m[1] == "config" or m[1] not in hidden]
 
     for texto, nombre, color in mods:
         es_actual = (nombre == actual)
