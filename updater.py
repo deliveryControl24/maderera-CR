@@ -25,18 +25,28 @@ GITHUB_REPO_DEFAULT = "https://github.com/deliveryControl24/maderera-CR"
 
 def format_changelog(texto):
     """Devuelve (titulo, lineas) legibles para el changelog."""
-    raw = (texto or "").replace("\\n", "\n").strip()
+    raw = (texto or "").replace("\\r", "").replace("\\n", "\n").strip()
     if not raw:
         return "Actualizacion del sistema", ["Correcciones de errores y mejoras"]
     lineas = [ln.strip() for ln in raw.split("\n") if ln.strip()]
     titulo = lineas[0] if lineas else "Novedades"
-    resto = lineas[1:] if len(lineas) > 1 else lineas
+    resto = lineas[1:] if len(lineas) > 1 else []
+    # Titulo muy largo: acortar y usar el texto como item
+    if len(titulo) > 70:
+        if not resto:
+            resto = [titulo]
+        titulo = "Novedades de la version"
     items = []
     for ln in resto:
         s = ln.lstrip("-*• ").strip()
         items.append(s if s else ln)
     if not items:
-        items = ["Correcciones de errores y mejoras"]
+        items = [titulo] if titulo else ["Correcciones de errores y mejoras"]
+        if items[0] == "Novedades de la version" and len(raw) <= 70:
+            items = [raw]
+    # Evitar titulo == unico item (se ve repetido)
+    if len(items) == 1 and items[0] == titulo and len(titulo) > 40:
+        titulo = "Novedades de la version"
     return titulo, items
 
 
@@ -818,6 +828,8 @@ class UpdateDialog:
 
     def _changelog_labels(self, parent, items):
         """Lista de cambios con Labels (siempre visibles, sin Text)."""
+        if not items:
+            items = ["Correcciones de errores y mejoras"]
         for it in items:
             row = tk.Frame(parent, bg=self.CARD)
             row.pack(fill=tk.X, padx=12, pady=(0, 6))
@@ -826,7 +838,7 @@ class UpdateDialog:
                      width=2, anchor="e").pack(side=tk.LEFT)
             tk.Label(row, text=it, bg=self.CARD, fg=self.TEXT,
                      font=("Helvetica", 10), justify=tk.LEFT,
-                     anchor="w", wraplength=380).pack(
+                     anchor="w", wraplength=400).pack(
                 side=tk.LEFT, fill=tk.X, expand=True)
 
     def _mk_btn(self, parent, text, color, command, width=16):
@@ -900,7 +912,7 @@ class UpdateDialog:
                  font=("Helvetica", 9)).pack(pady=(0, 10))
 
         body = tk.Frame(dialog, bg=self.BG)
-        body.pack(fill=tk.X, padx=16, pady=12)
+        body.pack(fill=tk.X, padx=16, pady=(12, 0))
 
         # Chips de version
         chips = tk.Frame(body, bg=self.BG)
@@ -916,19 +928,21 @@ class UpdateDialog:
             tk.Label(card, text=valor, bg=bg, fg=fg,
                      font=("Helvetica", 14, "bold")).pack()
 
-        # Card changelog (Labels, no Text)
+        # Card changelog (Labels, sin Text; max alto para no cortar botones)
         card = tk.Frame(body, bg=self.CARD, highlightthickness=1,
                         highlightbackground="#CFD8DC")
         card.pack(fill=tk.X, pady=(0, 4))
         titulo, items = format_changelog(info.get("changelog", ""))
         tk.Label(card, text=titulo, bg=self.CARD, fg=self.HEADER,
                  font=("Helvetica", 11, "bold"), anchor="w",
+                 justify=tk.LEFT, wraplength=420,
                  padx=12).pack(fill=tk.X, pady=(10, 8))
         self._changelog_labels(card, items)
         tk.Frame(card, bg=self.CARD, height=6).pack()
 
-        btns = tk.Frame(body, bg=self.BG)
-        btns.pack(fill=tk.X, pady=(12, 0))
+        # Footer: botones SIEMPRE visibles (fuera del area expandible)
+        footer = tk.Frame(dialog, bg=self.BG)
+        footer.pack(fill=tk.X, padx=16, pady=(12, 14))
 
         def on_update():
             dialog.destroy()
@@ -949,8 +963,8 @@ class UpdateDialog:
 
         dialog.protocol("WM_DELETE_WINDOW", on_cancel)
 
-        self._mk_btn(btns, "SI, ACTUALIZAR", self.OK, on_update, width=18)
-        self._mk_btn(btns, "AHORA NO", "#78909C", on_cancel, width=12)
+        self._mk_btn(footer, "SI, ACTUALIZAR", self.OK, on_update, width=18)
+        self._mk_btn(footer, "AHORA NO", "#78909C", on_cancel, width=12)
 
         dialog.update_idletasks()
         self._center(dialog)
