@@ -38,15 +38,6 @@ def _app_data():
 
 
 def _updates_dir():
-    path = os.path.join(os.environ.get("LOCALAPPDATA") or _app_data(), APP_NAME, "updates")
-    try:
-        path = os.path.join(
-            os.environ.get("LOCALAPPDATA") or os.path.expanduser("~"),
-            APP_NAME, "updates")
-    except Exception:
-        path = os.path.join(_app_data(), "updates")
-    os.makedirs(path, exist_ok=True)
-    # prefer LOCALAPPDATA\...\PinoSystem\updates like main app
     if sys.platform == "win32":
         base = os.environ.get("LOCALAPPDATA") or os.path.expanduser(
             "~\\AppData\\Local")
@@ -55,6 +46,7 @@ def _updates_dir():
         path = os.path.join(_app_data(), "updates")
     os.makedirs(path, exist_ok=True)
     return path
+
 
 
 def install_root():
