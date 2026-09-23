@@ -503,10 +503,116 @@ class AutoUpdater:
 
         return {"version": ver, "target": dest, "extracted": extracted}
 
+    def _exe_replace_targets(self):
+        """Rutas de EXE que deben quedar reemplazados al actualizar."""
+        targets = []
+        if getattr(sys, "frozen", False):
+            try:
+                cur = os.path.abspath(sys.executable)
+                if cur and os.path.isfile(cur):
+                    targets.append(cur)
+            except Exception:
+                pass
+        root_exe = os.path.join(get_install_root(), "PINO_SYSTEM.exe")
+        root_exe = os.path.abspath(root_exe)
+        if root_exe not in targets:
+            targets.append(root_exe)
+        # dedupe preservando orden
+        seen = set()
+        out = []
+        for t in targets:
+            if t not in seen:
+                seen.add(t)
+                out.append(t)
+        return out
+
+    def _write_replace_restarter(self, staged_exe, targets, relaunch):
+        """Copia el EXE nuevo sobre el actual (Windows: espera a que salga)."""
+        lines = ["@echo off", "chcp 65001 >nul", "timeout /t 2 /nobreak >nul"]
+        for dest in targets:
+            dest_dir = os.path.dirname(dest)
+            lines.append(f'if not exist "{dest_dir}" mkdir "{dest_dir}"')
+            # rename viejo si esta bloqueado, luego copia
+            lines.append(f'if exist "{dest}" move /Y "{dest}" "{dest}.old" >nul 2>nul')
+            lines.append(f'copy /Y "{staged_exe}" "{dest}" >nul')
+            lines.append(f'if exist "{dest}.old" del /F /Q "{dest}.old" >nul 2>nul')
+        # puntero: usar raiz (mismo EXE reemplazado)
+        ptr = os.path.join(get_install_root(), "current.txt")
+        lines.append(f'del /F /Q "{ptr}" >nul 2>nul')
+        if relaunch and os.path.isfile(relaunch):
+            lines.append(f'start "" "{relaunch}"')
+        lines.append('del "%~f0"')
+        bat_path = os.path.join(self.updates_dir, "update_replace.bat")
+        with open(bat_path, "w", encoding="utf-8", newline="\r\n") as f:
+            f.write("\n".join(lines) + "\n")
+        return bat_path
+
+    def apply_exe_replace(self, new_exe_path, new_version=None):
+        """
+        REEMPLAZA el EXE actual en su misma ruta (no crea versions\\nueva).
+        En Windows usa un .bat diferido porque el EXE esta en uso.
+        """
+        if not os.path.isfile(new_exe_path):
+            raise Exception("No se encontro el binario descargado")
+        if os.path.getsize(new_exe_path) < 1024:
+            raise Exception("El binario descargado esta vacio o corrupto")
+        if not getattr(sys, "frozen", False):
+            raise Exception("Reemplazo de EXE solo aplica a la version compilada")
+
+        targets = self._exe_replace_targets()
+        if not targets:
+            raise Exception("No se encontro el EXE actual a reemplazar")
+
+        # staged: copia estable para el bat
+        staged = os.path.join(self.updates_dir, "PINO_SYSTEM_new.exe")
+        tmp = staged + ".tmp"
+        shutil.copy2(new_exe_path, tmp)
+        os.replace(tmp, staged)
+        if not os.path.isfile(staged) or os.path.getsize(staged) < 1024:
+            raise Exception("No se pudo preparar el EXE nuevo")
+
+        relaunch = targets[0]
+        if sys.platform.startswith("win"):
+            bat_path = self._write_replace_restarter(staged, targets, relaunch)
+            subprocess.Popen(
+                [bat_path],
+                cwd=self.updates_dir,
+                shell=True,
+                creationflags=getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0),
+            )
+            mode = "replace"
+        else:
+            # fuera de Windows: copia directa (el binario no suele estar bloqueado)
+            for dest in targets:
+                os.makedirs(os.path.dirname(dest), exist_ok=True)
+                if os.path.abspath(new_exe_path) != os.path.abspath(dest):
+                    shutil.copy2(new_exe_path, dest)
+                try:
+                    os.chmod(dest, 0o755)
+                except Exception:
+                    pass
+            ptr = os.path.join(get_install_root(), "current.txt")
+            try:
+                if os.path.isfile(ptr):
+                    os.remove(ptr)
+            except Exception:
+                pass
+            popen_kwargs = {"cwd": os.path.dirname(relaunch)}
+            popen_kwargs["start_new_session"] = True
+            subprocess.Popen([relaunch], **popen_kwargs)
+            mode = "replace_direct"
+
+        return {
+            "mode": mode,
+            "version": str(new_version or "").strip(),
+            "target": relaunch,
+            "targets": targets,
+        }
+
     def apply_exe_side_by_side(self, new_exe_path, new_version):
         """
-        Copia el EXE nuevo a versions/<nueva>/ SIN tocar el que corre,
-        escribe current.txt y lanza el nuevo.
+        Legacy: copia el EXE a versions/<nueva>/ SIN tocar el que corre.
+        Solo fallback si apply_exe_replace falla.
         """
         if not os.path.isfile(new_exe_path):
             raise Exception("No se encontro el binario descargado")
@@ -555,7 +661,7 @@ class AutoUpdater:
         except Exception:
             pass
 
-        return {"version": ver, "target": dest_exe}
+        return {"mode": "side_by_side", "version": ver, "target": dest_exe}
 
     def apply_zip_update_inplace(self, zip_path):
         """
@@ -604,8 +710,7 @@ class AutoUpdater:
         """
         Aplica actualizacion:
           - zip: extrae a versions/<nueva>/ y relanza (fuente)
-          - exe: copia a versions/<nueva>/ y relanza (side-by-side)
-        Nunca pisa el binario en uso. Retorna info del swap.
+          - exe: REEMPLAZA el EXE actual en su misma ruta y relanza
         """
         if update_format == "zip":
             try:
@@ -622,41 +727,48 @@ class AutoUpdater:
                 return {"mode": "inplace"}
 
         if getattr(sys, "frozen", False):
-            # Preferir side-by-side (carpeta nueva)
+            # Principal: reemplazar el EXE actual (lo que pide el usuario)
             try:
-                return self.apply_exe_side_by_side(update_exe_path, new_version)
-            except Exception as e_side:
-                # Fallback legado: copia via script (puede fallar si EXE en uso)
-                current_exe = sys.executable
-                if not current_exe or not os.path.exists(current_exe):
-                    raise e_side
+                return self.apply_exe_replace(update_exe_path, new_version)
+            except Exception as e_rep:
+                # Fallback legado: side-by-side si el replace no pudo
+                try:
+                    result = self.apply_exe_side_by_side(update_exe_path, new_version)
+                    if isinstance(result, dict):
+                        result["mode"] = "side_by_side"
+                        result["error_replace"] = str(e_rep)
+                    return result
+                except Exception as e_side:
+                    current_exe = sys.executable
+                    if not current_exe or not os.path.exists(current_exe):
+                        raise e_side
 
-                if sys.platform.startswith("win"):
-                    bat_content = f'''@echo off
+                    if sys.platform.startswith("win"):
+                        bat_content = f'''@echo off
 timeout /t 2 /nobreak >nul
 copy /Y "{update_exe_path}" "{current_exe}"
 echo Actualizacion completada
 start "" "{current_exe}"
 del "%~f0"
 '''
-                    bat_path = os.path.join(self.updates_dir, "update.bat")
-                    with open(bat_path, "w") as f:
-                        f.write(bat_content)
-                    subprocess.Popen([bat_path], shell=True)
-                    return {"mode": "legacy_copy", "error_side_by_side": str(e_side)}
+                        bat_path = os.path.join(self.updates_dir, "update.bat")
+                        with open(bat_path, "w") as f:
+                            f.write(bat_content)
+                        subprocess.Popen([bat_path], shell=True)
+                        return {"mode": "legacy_copy", "error_side_by_side": str(e_side)}
 
-                sh_content = f'''#!/bin/sh
+                    sh_content = f'''#!/bin/sh
 sleep 2
 cp -f "{update_exe_path}" "{current_exe}" || exit 1
 chmod +x "{current_exe}"
 nohup "{current_exe}" >/dev/null 2>&1 &
 '''
-                sh_path = os.path.join(self.updates_dir, "update.sh")
-                with open(sh_path, "w") as f:
-                    f.write(sh_content)
-                os.chmod(sh_path, 0o755)
-                subprocess.Popen(["/bin/sh", sh_path], start_new_session=True)
-                return {"mode": "legacy_copy", "error_side_by_side": str(e_side)}
+                    sh_path = os.path.join(self.updates_dir, "update.sh")
+                    with open(sh_path, "w") as f:
+                        f.write(sh_content)
+                    os.chmod(sh_path, 0o755)
+                    subprocess.Popen(["/bin/sh", sh_path], start_new_session=True)
+                    return {"mode": "legacy_copy", "error_side_by_side": str(e_side)}
 
         # modo desarrollo con formato exe: no hay binario
         raise Exception("Ejecutable no encontrado (modo desarrollo)")

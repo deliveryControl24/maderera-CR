@@ -7,7 +7,7 @@ import shutil
 
 # Base app name
 APP_NAME = "PinoSystem"
-APP_VERSION = "2.6.4"
+APP_VERSION = "2.6.5"
 
 def get_app_data_dir():
     """Obtiene la carpeta de datos de la aplicación (AppData Local)"""
@@ -108,36 +108,32 @@ LAUNCHER_BAT = r'''@echo off
 chcp 65001 >nul
 setlocal
 cd /d "%~dp0"
+rem Preferir el EXE de la raiz (se reemplaza al actualizar)
+if exist "PINO_SYSTEM.exe" (
+  start "" "%CD%\PINO_SYSTEM.exe"
+  exit /b 0
+)
 set "VER="
 if exist current.txt (
   set /p VER=<current.txt
 )
-if not defined VER set "VER=__ROOT__"
-set "EXE=versions\%VER%\PINO_SYSTEM.exe"
-set "PY=versions\%VER%\app.py"
-if exist "%EXE%" (
-  start "" "%EXE%"
-  exit /b 0
-)
-if exist "%PY%" (
-  where python >nul 2>nul
-  if errorlevel 1 (
-    where py >nul 2>nul
-    if errorlevel 1 (
-      echo No se encontro Python para versions\%VER%
-      pause
-      exit /b 1
-    )
-    py -3 "%PY%"
+if defined VER (
+  if exist "versions\%VER%\PINO_SYSTEM.exe" (
+    start "" "%CD%\versions\%VER%\PINO_SYSTEM.exe"
     exit /b 0
   )
-  python "%PY%"
-  exit /b 0
-)
-REM fallback: raiz tipica (primera instalacion)
-if exist "PINO_SYSTEM.exe" (
-  start "" "%CD%\PINO_SYSTEM.exe"
-  exit /b 0
+  if exist "versions\%VER%\app.py" (
+    where python >nul 2>nul
+    if not errorlevel 1 (
+      python "versions\%VER%\app.py"
+      exit /b 0
+    )
+    where py >nul 2>nul
+    if not errorlevel 1 (
+      py -3 "versions\%VER%\app.py"
+      exit /b 0
+    )
+  )
 )
 if exist "app.py" (
   python app.py
@@ -150,11 +146,20 @@ exit /b 1
 
 
 def ensure_launcher():
-    """Crea INICIAR.bat en la raiz si no existe."""
+    """Crea/actualiza INICIAR.bat en la raiz (prefiere PINO_SYSTEM.exe)."""
     root = get_install_root()
     path = os.path.join(root, "INICIAR.bat")
     try:
-        if not os.path.exists(path):
+        # reescribir si es el launcher viejo (no prefiere raiz) o no existe
+        need = True
+        if os.path.exists(path):
+            try:
+                with open(path, "r", encoding="utf-8", errors="replace") as f:
+                    content = f.read()
+                need = "Preferir el EXE de la raiz" not in content
+            except Exception:
+                need = True
+        if need:
             with open(path, "w", encoding="utf-8", newline="\r\n") as f:
                 f.write(LAUNCHER_BAT)
         return path

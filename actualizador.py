@@ -116,43 +116,81 @@ def descargar(url, dest, on_pct=None):
         raise Exception("Descarga incompleta")
 
 
+def _exe_targets(root):
+    """EXE a reemplazar: el de la raiz y (si existe) el actual en versions."""
+    targets = [os.path.abspath(os.path.join(root, "PINO_SYSTEM.exe"))]
+    ver = ""
+    cur = os.path.join(root, "current.txt")
+    try:
+        if os.path.isfile(cur):
+            with open(cur, "r", encoding="utf-8") as f:
+                ver = (f.read() or "").strip()
+            if ver:
+                ver = ver.splitlines()[0].strip()
+    except Exception:
+        ver = ""
+    if ver:
+        old = os.path.abspath(
+            os.path.join(root, "versions", ver, "PINO_SYSTEM.exe"))
+        if os.path.isfile(old) and old not in targets:
+            targets.append(old)
+    out, seen = [], set()
+    for t in targets:
+        if t not in seen:
+            seen.add(t)
+            out.append(t)
+    return out
+
+
 def instalar_exe(nuevo_exe, version):
+    """Reemplaza el PINO_SYSTEM.exe actual en su misma carpeta (raiz)."""
     root = install_root()
-    ver = str(version).strip() or "nueva"
-    dest_dir = os.path.join(root, "versions", ver)
-    os.makedirs(dest_dir, exist_ok=True)
-    dest = os.path.join(dest_dir, "PINO_SYSTEM.exe")
-    running = ""
-    if getattr(sys, "frozen", False):
-        running = os.path.abspath(sys.executable)
-    if running and os.path.abspath(dest) == running:
-        dest_dir = os.path.join(root, "versions", ver + "_new")
-        os.makedirs(dest_dir, exist_ok=True)
-        dest = os.path.join(dest_dir, "PINO_SYSTEM.exe")
-    tmp = dest + ".tmp"
-    shutil.copy2(nuevo_exe, tmp)
-    os.replace(tmp, dest)
-    if sys.platform != "win32":
+    targets = _exe_targets(root)
+    main_dest = targets[0]
+
+    if not os.path.isfile(nuevo_exe) or os.path.getsize(nuevo_exe) < 1024:
+        raise Exception("El EXE descargado esta vacio o corrupto")
+
+    updates = _updates_dir()
+    staged = os.path.join(updates, "PINO_SYSTEM_new.exe")
+    shutil.copy2(nuevo_exe, staged)
+
+    # borrar puntero side-by-side para que INICIAR use la raiz
+    ptr = os.path.join(root, "current.txt")
+    try:
+        if os.path.isfile(ptr):
+            os.remove(ptr)
+    except Exception:
+        pass
+
+    if sys.platform.startswith("win"):
+        # EXE en uso: bat diferido reemplaza y relanza
+        lines = ["@echo off", "chcp 65001 >nul", "timeout /t 2 /nobreak >nul"]
+        for dest in targets:
+            d = os.path.dirname(dest)
+            lines.append(f'if not exist "{d}" mkdir "{d}"')
+            lines.append(f'if exist "{dest}" move /Y "{dest}" "{dest}.old" >nul 2>nul')
+            lines.append(f'copy /Y "{staged}" "{dest}" >nul')
+            lines.append(f'if exist "{dest}.old" del /F /Q "{dest}.old" >nul 2>nul')
+        lines.append(f'start "" "{main_dest}"')
+        lines.append('del "%~f0"')
+        bat = os.path.join(updates, "update_replace.bat")
+        with open(bat, "w", encoding="utf-8", newline="\r\n") as f:
+            f.write("\n".join(lines) + "\n")
+        subprocess.Popen([bat], shell=True, cwd=updates)
+        return main_dest
+
+    # Mac/Linux: copia directa
+    for dest in targets:
+        os.makedirs(os.path.dirname(dest), exist_ok=True)
+        shutil.copy2(staged, dest)
         try:
             os.chmod(dest, 0o755)
         except Exception:
             pass
-    # puntero + launcher
-    ptr = os.path.join(root, "current.txt")
-    with open(ptr + ".tmp", "w", encoding="utf-8") as f:
-        f.write(os.path.basename(dest_dir) + "\n")
-    os.replace(ptr + ".tmp", ptr)
-    try:
-        from config_paths import ensure_launcher
-        ensure_launcher()
-    except Exception:
-        pass
-    # lanzar nuevo
-    popen = {"cwd": dest_dir}
-    if not sys.platform.startswith("win"):
-        popen["start_new_session"] = True
-    subprocess.Popen([dest], **popen)
-    return dest
+    popen = {"cwd": os.path.dirname(main_dest), "start_new_session": True}
+    subprocess.Popen([main_dest], **popen)
+    return main_dest
 
 
 class App(tk.Tk):
@@ -244,12 +282,13 @@ class App(tk.Tk):
             self.after(0, lambda: self.set_estado("Descargando sistema nuevo..."))
             descargar(url, dest, on_pct=lambda n: self.after(0, self.set_pct, n))
 
-            self.after(0, lambda: self.set_estado("Instalando..."))
+            self.after(0, lambda: self.set_estado("Instalando (reemplazando EXE)..."))
             path = instalar_exe(dest, remota)
             self.set_pct(100)
             self.after(0, lambda: messagebox.showinfo(
                 "Listo",
                 f"Se instalo la version {remota}.\n\n"
+                "El EXE se reemplazo en su carpeta.\n"
                 "El sistema se va a abrir solo.\n"
                 f"Instalado en:\n{path}"))
             self.after(600, self.destroy)
