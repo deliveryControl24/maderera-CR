@@ -16,7 +16,7 @@ rem ---------- 1) Push codigo + version.json + zip ----------
 echo [1/4] Subir codigo + version.json + zip...
 rem NUNCA git add -A: PAT sin scope workflow (.github) y no subir .lnk
 git reset HEAD -- .github 2>nul
-git add config_paths.py app.py main.py modulos.py updater.py database.py excel_export.py themes.py utils.py cargar_datos_prueba.py version.json updates/latest.zip PUBLICAR_261.bat PUBLICAR_260.bat PUBLICAR_251.bat SUBIR.bat build_exe.bat empaquetar_dist.bat empacotar_update.py AGENTS.md COMANDOS_GITHUB.txt .gitignore
+git add config_paths.py app.py main.py modulos.py updater.py database.py excel_export.py themes.py utils.py cargar_datos_prueba.py actualizador.py version.json updates/latest.zip PUBLICAR_262.bat PUBLICAR_261.bat PUBLICAR_260.bat PUBLICAR_251.bat SUBIR.bat build_exe.bat empaquetar_dist.bat empacotar_update.py AGENTS.md COMANDOS_GITHUB.txt .gitignore
 git commit -m "v2.6.2: fix Config en blanco + actualizador" || echo (ya estaba commiteado)
 git push origin main
 if errorlevel 1 (
