@@ -694,11 +694,28 @@ class UpdateDialog:
         self.updater = updater
         self.dialog = None
 
-    def _center(self, win, w, h):
+    def _center(self, win, w=None, h=None):
         win.update_idletasks()
+        if w is None:
+            w = win.winfo_reqwidth()
+        if h is None:
+            h = win.winfo_reqheight()
         x = (win.winfo_screenwidth() // 2) - (w // 2)
         y = (win.winfo_screenheight() // 2) - (h // 2)
         win.geometry(f"{w}x{h}+{x}+{y}")
+
+    def _changelog_labels(self, parent, items):
+        """Lista de cambios con Labels (siempre visibles, sin Text)."""
+        for it in items:
+            row = tk.Frame(parent, bg=self.CARD)
+            row.pack(fill=tk.X, padx=12, pady=(0, 6))
+            tk.Label(row, text="-", bg=self.CARD, fg=self.HEADER,
+                     font=("Helvetica", 10, "bold"),
+                     width=2, anchor="e").pack(side=tk.LEFT)
+            tk.Label(row, text=it, bg=self.CARD, fg=self.TEXT,
+                     font=("Helvetica", 10), justify=tk.LEFT,
+                     anchor="w", wraplength=380).pack(
+                side=tk.LEFT, fill=tk.X, expand=True)
 
     def _mk_btn(self, parent, text, color, command, width=16):
         cont = tk.Frame(parent, bg=color, padx=2, pady=2)
@@ -759,8 +776,6 @@ class UpdateDialog:
         dialog.configure(bg=self.BG)
         dialog.resizable(False, False)
         dialog.transient(self.parent)
-        dialog.grab_set()
-        self._center(dialog, 480, 420)
         self.dialog = dialog
 
         header = tk.Frame(dialog, bg=self.HEADER)
@@ -773,7 +788,7 @@ class UpdateDialog:
                  font=("Helvetica", 9)).pack(pady=(0, 10))
 
         body = tk.Frame(dialog, bg=self.BG)
-        body.pack(fill=tk.BOTH, expand=True, padx=16, pady=12)
+        body.pack(fill=tk.X, padx=16, pady=12)
 
         # Chips de version
         chips = tk.Frame(body, bg=self.BG)
@@ -789,23 +804,16 @@ class UpdateDialog:
             tk.Label(card, text=valor, bg=bg, fg=fg,
                      font=("Helvetica", 14, "bold")).pack()
 
-        # Card changelog
+        # Card changelog (Labels, no Text)
         card = tk.Frame(body, bg=self.CARD, highlightthickness=1,
                         highlightbackground="#CFD8DC")
-        card.pack(fill=tk.BOTH, expand=True)
+        card.pack(fill=tk.X, pady=(0, 4))
         titulo, items = format_changelog(info.get("changelog", ""))
         tk.Label(card, text=titulo, bg=self.CARD, fg=self.HEADER,
                  font=("Helvetica", 11, "bold"), anchor="w",
-                 padx=12, pady=(10, 4)).pack(fill=tk.X)
-
-        txt = tk.Text(card, height=8, width=52, font=("Helvetica", 10),
-                      bg=self.CARD, fg=self.TEXT, relief=tk.FLAT,
-                      padx=8, pady=4, wrap=tk.WORD)
-        txt.pack(fill=tk.BOTH, expand=True, padx=8, pady=(0, 8))
-        txt.tag_configure("item", lmargin1=8, lmargin2=22, spacing3=4)
-        for it in items:
-            txt.insert(tk.END, f"  {it}\n", "item")
-        txt.config(state="disabled")
+                 padx=12).pack(fill=tk.X, pady=(10, 8))
+        self._changelog_labels(card, items)
+        tk.Frame(card, bg=self.CARD, height=6).pack()
 
         btns = tk.Frame(body, bg=self.BG)
         btns.pack(fill=tk.X, pady=(12, 0))
@@ -831,6 +839,10 @@ class UpdateDialog:
 
         self._mk_btn(btns, "SI, ACTUALIZAR", self.OK, on_update, width=18)
         self._mk_btn(btns, "AHORA NO", "#78909C", on_cancel, width=12)
+
+        dialog.update_idletasks()
+        self._center(dialog)
+        dialog.grab_set()
 
     def show_no_updates(self):
         """Confirmacion amable de que esta al dia."""
@@ -925,8 +937,6 @@ class UpdateDialog:
         dialog.configure(bg=self.BG)
         dialog.resizable(False, False)
         dialog.transient(self.parent)
-        dialog.grab_set()
-        self._center(dialog, 480, 380)
         self.dialog = dialog
 
         header = tk.Frame(dialog, bg=self.HEADER)
@@ -936,7 +946,7 @@ class UpdateDialog:
                  font=("Helvetica", 12, "bold")).pack(pady=12)
 
         body = tk.Frame(dialog, bg=self.BG)
-        body.pack(fill=tk.BOTH, expand=True, padx=16, pady=12)
+        body.pack(fill=tk.X, padx=16, pady=12)
 
         chips = tk.Frame(body, bg=self.BG)
         chips.pack(fill=tk.X, pady=(0, 10))
@@ -954,24 +964,22 @@ class UpdateDialog:
 
         card = tk.Frame(body, bg=self.CARD, highlightthickness=1,
                         highlightbackground="#CFD8DC")
-        card.pack(fill=tk.BOTH, expand=True)
+        card.pack(fill=tk.X, pady=(0, 4))
         titulo, items = format_changelog(changelog)
         tk.Label(card, text=titulo, bg=self.CARD, fg=self.HEADER,
                  font=("Helvetica", 11, "bold"), anchor="w",
-                 padx=12, pady=(10, 4)).pack(fill=tk.X)
-        txt = tk.Text(card, height=10, width=52, font=("Helvetica", 10),
-                      bg=self.CARD, fg=self.TEXT, relief=tk.FLAT,
-                      padx=8, pady=4, wrap=tk.WORD)
-        txt.pack(fill=tk.BOTH, expand=True, padx=8, pady=(0, 8))
-        txt.tag_configure("item", lmargin1=8, lmargin2=22, spacing3=4)
-        for it in items:
-            txt.insert(tk.END, f"  {it}\n", "item")
-        txt.config(state="disabled")
+                 padx=12).pack(fill=tk.X, pady=(10, 8))
+        self._changelog_labels(card, items)
+        tk.Frame(card, bg=self.CARD, height=6).pack()
 
         btns = tk.Frame(body, bg=self.BG)
         btns.pack(fill=tk.X, pady=(12, 0))
         self._mk_btn(btns, "CERRAR", self.OK,
                      lambda: dialog.destroy(), width=12)
+
+        dialog.update_idletasks()
+        self._center(dialog)
+        dialog.grab_set()
 
     def _start_update(self, download_url, checksum, update_format="exe", new_version=None):
         """Inicia el proceso de actualizacion (exe o zip de .py)"""
