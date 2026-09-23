@@ -64,12 +64,22 @@ class AppMaderera:
             self._update_info = result
             try:
                 from updater import UpdateDialog, AutoUpdater
-                UpdateDialog(self.root, AutoUpdater()).show_update_available(result)
+                UpdateDialog(self.root, AutoUpdater()).show_update_available(
+                    result, on_dismiss=self._refrescar_inicio)
             except Exception:
                 try:
                     self.mostrar_inicio()
                 except Exception:
                     pass
+
+    def _refrescar_inicio(self):
+        """Tras cerrar el dialogo, deja el banner ACTUALIZAR en el inicio."""
+        if not self._update_info:
+            return
+        try:
+            self.mostrar_inicio()
+        except Exception:
+            pass
 
     def _banner_actualizacion(self, parent):
         """Barra en el inicio si cerro el dialogo y quedo pendiente."""
@@ -88,7 +98,8 @@ class AppMaderera:
 
         def actualizar():
             from updater import UpdateDialog, AutoUpdater
-            UpdateDialog(self.root, AutoUpdater()).show_update_available(info)
+            UpdateDialog(self.root, AutoUpdater()).show_update_available(
+                info, on_dismiss=self._refrescar_inicio)
 
         def ocultar():
             self._update_info = None

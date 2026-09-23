@@ -746,7 +746,7 @@ class UpdateDialog:
         self.dialog.update()
         return self.dialog
 
-    def show_update_available(self, info):
+    def show_update_available(self, info, on_dismiss=None):
         """Dialogo agradable cuando hay una version nueva."""
         if self.dialog:
             try:
@@ -821,6 +821,13 @@ class UpdateDialog:
 
         def on_cancel():
             dialog.destroy()
+            if on_dismiss:
+                try:
+                    on_dismiss()
+                except Exception:
+                    pass
+
+        dialog.protocol("WM_DELETE_WINDOW", on_cancel)
 
         self._mk_btn(btns, "SI, ACTUALIZAR", self.OK, on_update, width=18)
         self._mk_btn(btns, "AHORA NO", "#78909C", on_cancel, width=12)
