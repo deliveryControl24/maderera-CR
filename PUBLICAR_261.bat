@@ -17,7 +17,7 @@ echo [1/4] Subir codigo + version.json + zip...
 rem NUNCA git add -A: PAT sin scope workflow (.github) y no subir .lnk
 git reset HEAD -- .github 2>nul
 git add config_paths.py app.py main.py modulos.py updater.py database.py excel_export.py themes.py utils.py cargar_datos_prueba.py version.json updates/latest.zip PUBLICAR_261.bat PUBLICAR_260.bat PUBLICAR_251.bat SUBIR.bat build_exe.bat empaquetar_dist.bat empacotar_update.py AGENTS.md COMANDOS_GITHUB.txt .gitignore
-git commit -m "v2.6.1: actualizacion en un clic para el usuario final" || echo (ya estaba commiteado)
+git commit -m "v2.6.2: fix Config en blanco + actualizador" || echo (ya estaba commiteado)
 git push origin main
 if errorlevel 1 (
   echo.
@@ -101,9 +101,8 @@ popd
 
 rem ---------- 4) Push EXE ----------
 echo [4/4] Subir EXE a GitHub...
-git add updates/PINO_SYSTEM.exe updates/ACTUALIZADOR.exe version.json updates/latest.zip actualizador.py 2>nul
-git add updates/PINO_SYSTEM.exe version.json updates/latest.zip actualizador.py
-git commit -m "v2.6.1: EXE real con codigo nuevo (dialogo 1 clic)" || echo (EXE ya era igual)
+git add updates/PINO_SYSTEM.exe updates/ACTUALIZADOR.exe version.json updates/latest.zip actualizador.py
+git commit -m "v2.6.2: EXE con Config arreglada + ACTUALIZADOR" || echo (EXE ya era igual)
 git push origin main
 if errorlevel 1 (
   echo [ERROR] Push del EXE fallo.
@@ -115,7 +114,7 @@ echo.
 echo ============================================
 echo  LISTO
 echo  - EXE 2.6.2 con dialogo SI, ACTUALIZAR + Config abierta
-echo  - version.json 2.6.1 en GitHub
+echo  - version.json 2.6.2 en GitHub
 echo  - paquete_pino\ actualizado
 echo.
 echo En clientes: cerrar PINO, abrir INICIAR.bat
