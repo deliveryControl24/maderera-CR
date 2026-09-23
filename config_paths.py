@@ -7,7 +7,7 @@ import shutil
 
 # Base app name
 APP_NAME = "PinoSystem"
-APP_VERSION = "2.6.0"
+APP_VERSION = "2.6.1"
 
 def get_app_data_dir():
     """Obtiene la carpeta de datos de la aplicación (AppData Local)"""

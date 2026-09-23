@@ -49,12 +49,63 @@ class AppMaderera:
         self.crear_menu()
         self.crear_widgets_principales()
         self.crear_barra_estado()
+        self._update_info = None
 
         # Verificar actualizaciones y stock bajo al iniciar (sin congelar UI)
-        self.root.after(1500, lambda: check_on_startup(self.root))
+        self.root.after(1500, lambda: check_on_startup(
+            self.root, on_result=self._on_update_check))
         # Limpieza de versiones viejas (side-by-side), diferida
         self.root.after(8000, self._limpiar_versiones_viejas)
         self.root.after(2500, self.verificar_stock_bajo)
+
+    def _on_update_check(self, result):
+        """Al iniciar: si hay update, abre el dialogo simple (un clic)."""
+        if result and result.get("update_available"):
+            self._update_info = result
+            try:
+                from updater import UpdateDialog, AutoUpdater
+                UpdateDialog(self.root, AutoUpdater()).show_update_available(result)
+            except Exception:
+                try:
+                    self.mostrar_inicio()
+                except Exception:
+                    pass
+
+    def _banner_actualizacion(self, parent):
+        """Barra en el inicio si cerro el dialogo y quedo pendiente."""
+        info = getattr(self, "_update_info", None)
+        if not info:
+            return
+        bar = tk.Frame(parent, bg="#1565C0", padx=8, pady=6)
+        bar.pack(fill=tk.X, padx=20, pady=(6, 0))
+        tk.Label(
+            bar,
+            text=f"Tienes una actualizacion pendiente "
+                 f"(nueva version {info.get('remote_version', '')})",
+            bg="#1565C0", fg="white",
+            font=("Helvetica", 10, "bold"),
+        ).pack(side=tk.LEFT, padx=(4, 10))
+
+        def actualizar():
+            from updater import UpdateDialog, AutoUpdater
+            UpdateDialog(self.root, AutoUpdater()).show_update_available(info)
+
+        def ocultar():
+            self._update_info = None
+            self.mostrar_inicio()
+
+        for texto, cmd, color in (
+            ("ACTUALIZAR", actualizar, "#FFD600"),
+            ("LUEGO", ocultar, "#90A4AE"),
+        ):
+            cont = tk.Frame(bar, bg=color, padx=2, pady=2)
+            cont.pack(side=tk.RIGHT, padx=4)
+            tk.Button(
+                cont, text=texto,
+                bg="#F0F0F0", fg="#212121",
+                font=("Helvetica", 9, "bold"),
+                command=cmd, relief=tk.FLAT, cursor="hand2",
+            ).pack()
 
     def recargar_tema(self):
         """Vuelve a leer el tema de config y repinta la pantalla de inicio."""
@@ -161,6 +212,9 @@ class AppMaderera:
         main_frame = tk.Frame(self.root, bg=t["root_bg"])
         main_frame.pack(fill=tk.BOTH, expand=True)
 
+        # Banner de actualizacion (si la revisión en background la encontro)
+        self._banner_actualizacion(main_frame)
+
         # Titulo
         titulo_frame = tk.Frame(main_frame, bg=t["root_bg"])
         titulo_frame.pack(pady=(25, 5))
@@ -200,7 +254,7 @@ class AppMaderera:
             ("CLIENTES",                    "#6A1B9A", self.abrir_clientes, "clientes"),
             ("REPORTES\nInformes",          "#E65100", self.abrir_reportes, "reportes"),
             ("REPORTES\nGraficos",          "#6A1B9A", self.abrir_reportes_graficos, "graficos"),
-            ("ACTUALIZAR\nSistema",         "#1565C0", self.verificar_actualizaciones, "actualizar"),
+            ("ACTUALIZAR\nSistema",         "#2E7D32", self.verificar_actualizaciones, "actualizar"),
             ("CONFIGURACION\nDel Sistema",  "#37474F", self.abrir_configuracion, "config"),
         ]
         hidden = set(load_config().get("hidden_modules") or [])

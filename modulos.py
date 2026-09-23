@@ -1632,8 +1632,102 @@ class ConfiguracionModulo:
 
         self._seccion(f, "SERVIDOR DE ACTUALIZACIONES")
 
-        from updater import AutoUpdater
+        from updater import AutoUpdater, UpdateDialog
         updater_cfg = AutoUpdater()
+
+        # Estado de la version (agradable para el usuario)
+        from config_paths import get_version, load_config as _lcfg_app
+        estado = tk.Frame(f, bg="#E8F5E9", highlightthickness=1,
+                          highlightbackground="#A5D6A7")
+        estado.pack(fill=tk.X, padx=24, pady=(4, 8))
+        tk.Label(estado, text="ESTADO DE TU SISTEMA",
+                 bg="#E8F5E9", fg="#1B5E20",
+                 font=("Helvetica", 10, "bold")).pack(anchor="w", padx=12, pady=(8, 2))
+        last_chk = _lcfg_app().get("last_update_check") or "nunca"
+        tk.Label(estado,
+                 text=f"Version instalada: {get_version()}\n"
+                      f"Ultima comprobacion: {last_chk}",
+                 bg="#E8F5E9", fg="#33691E",
+                 font=("Helvetica", 10), justify=tk.LEFT).pack(anchor="w", padx=12, pady=(0, 6))
+        fila_estado = tk.Frame(estado, bg="#E8F5E9")
+        fila_estado.pack(anchor="w", padx=10, pady=(0, 10))
+
+        def buscar_updates_desde_config():
+            self.lbl_estado.config(text="Buscando actualizaciones...")
+            self.ventana.update_idletasks()
+
+            def trabajo():
+                try:
+                    result = updater_cfg.check_for_updates(silent=False)
+                except Exception as e:
+                    result = {"update_available": False, "message": str(e)}
+
+                def mostrar():
+                    self.lbl_estado.config(text="Comprobacion terminada")
+                    dlg = UpdateDialog(self.ventana, updater_cfg)
+                    if result and result.get("update_available"):
+                        dlg.show_update_available(result)
+                    elif result and result.get("message") and (
+                            "ultima version" in result["message"].lower()):
+                        dlg.show_no_updates()
+                    else:
+                        dlg.show_error(
+                            (result or {}).get("message") or "Error desconocido")
+
+                try:
+                    self.ventana.after(0, mostrar)
+                except Exception:
+                    pass
+
+            import threading as _th
+            _th.Thread(target=trabajo, daemon=True).start()
+
+        def ver_novedades():
+            self.lbl_estado.config(text="Descargando novedades...")
+            self.ventana.update_idletasks()
+
+            def trabajo():
+                try:
+                    result = updater_cfg.check_for_updates(silent=False)
+                except Exception as e:
+                    result = {"update_available": False, "message": str(e)}
+
+                def mostrar():
+                    self.lbl_estado.config(text="Listo")
+                    if not result:
+                        dlg = UpdateDialog(self.ventana, updater_cfg)
+                        dlg.show_error("No se pudo leer el servidor.")
+                        return
+                    # Muestra changelog aunque no haya update (novedades publicadas)
+                    dlg = UpdateDialog(self.ventana, updater_cfg)
+                    remote = result.get("remote_version")
+                    if result.get("update_available"):
+                        dlg.show_changelog(remote, result.get("changelog", ""))
+                    elif result.get("message") and "Error" in str(result.get("message")):
+                        dlg.show_error(result.get("message"))
+                    else:
+                        # al dia: aun asi mostrar ultimo changelog si vino en la respuesta
+                        dlg.show_changelog(
+                            remote or get_version(),
+                            result.get("changelog") or "Estas al dia con la ultima version publicada.")
+
+                try:
+                    self.ventana.after(0, mostrar)
+                except Exception:
+                    pass
+
+            import threading as _th
+            _th.Thread(target=trabajo, daemon=True).start()
+
+        for txt, color, cmd in (
+            ("BUSCAR ACTUALIZACIONES", "#1565C0", buscar_updates_desde_config),
+            ("VER NOVEDADES / BUGS", "#6A1B9A", ver_novedades),
+        ):
+            cont = tk.Frame(fila_estado, bg=color, padx=2, pady=2)
+            cont.pack(side=tk.LEFT, padx=4)
+            tk.Button(cont, text=txt, bg="#F0F0F0", fg="#212121",
+                      font=("Helvetica", 9, "bold"), command=cmd,
+                      relief=tk.FLAT).pack()
 
         f_type = self._fila(f, "Tipo servidor:", ancho=14)
         self.combo_server_type = ttk.Combobox(f_type, width=28, state="readonly",
