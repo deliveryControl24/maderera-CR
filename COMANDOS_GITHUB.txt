@@ -23,11 +23,12 @@ python3.11 empacotar_update.py 2.6.1 "Bugs corregidos: ..."
 git add config_paths.py app.py main.py modulos.py version.json updates/latest.zip
 git commit -m "v2.6.1: descripcion"
 git push origin main
-# 4) Si hay EXE Windows: doble clic PUBLICAR.bat (un solo bat, lee APP_VERSION)
-#    -> compila fuera del share + sube version.json + PINO_SYSTEM.exe + ACTUALIZADOR.exe
+# 4) Si hay EXE Windows: compilar APARTE (build_exe.bat) -> copiar a updates\
+#    luego doble clic PUBLICAR.bat (solo sube, NO compila; lee APP_VERSION)
 # 5) Verificar:
 #    https://raw.githubusercontent.com/deliveryControl24/maderera-CR/main/version.json
-# NOTA: ACTUALIZADOR.exe = cliente. PUBLICAR.bat = publicar. No hay PUBLICAR_26X.bat.
+# NOTA: ACTUALIZADOR.exe = cliente. PUBLICAR.bat = publicar (sin compilar).
+#       build_exe.bat = compilar EXE. No hay PUBLICAR_26X.bat.
 
 ------------------------------------------------------------
  1. PRIMERA VEZ (configurar)

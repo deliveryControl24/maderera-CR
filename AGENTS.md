@@ -20,9 +20,9 @@ git commit -m "v<NUEVA_VERSION>: descripcion"
 git push origin main
 ```
 
-Si hay EXE Windows, ademas rebuild + subir `updates/PINO_SYSTEM.exe` (doble clic `PUBLICAR.bat` en Windows) y `updates/ACTUALIZADOR.exe` si aplica. **Un solo `PUBLICAR.bat`** — lee la version de `APP_VERSION`; no crear `PUBLICAR_26X.bat` por release.
+**`PUBLICAR.bat` solo SUBE a GitHub — NO compila.** Lee `APP_VERSION`, sube código + `version.json` + `updates/latest.zip` + el EXE que ya esté en `updates\PINO_SYSTEM.exe`. Para generar el EXE aparte: `build_exe.bat` (o PyInstaller a mano) y copiar a `updates\` antes de PUBLICAR. No crear `PUBLICAR_26X.bat`.
 
-**Si solo se sube `version.json` y NO el EXE nuevo**, el cliente “se actualiza” pero sigue corriendo el binario viejo y el aviso se repite para siempre. El EXE debe recompilarse en Windows (no en el share de Parallels) y subirse en el mismo release.
+**Si solo se sube `version.json` y NO el EXE nuevo**, el cliente “se actualiza” pero sigue corriendo el binario viejo y el aviso se repite para siempre. El EXE (compilado en Windows, no en el share de Parallels) debe estar en `updates\` y subirse en el mismo release.
 
 Verificar despues del push:
 https://raw.githubusercontent.com/deliveryControl24/maderera-CR/main/version.json
