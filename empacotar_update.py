@@ -4,9 +4,12 @@ Crea una actualizacion LIVIANA (.zip con solo .py).
 No compila nada: sirve para instalaciones fuente/portable
 y para tener el zip en el repo sin rebuild de EXE.
 
+El updater la extrae en versions/<nueva>/ y cambia current.txt
+(side-by-side): no pisa la version en uso.
+
 Uso:
   python3.11 empacotar_update.py
-  python3.11 empacotar_update.py 2.4.1 "Correccion X"
+  python3.11 empacotar_update.py 2.5.1 "Correccion X"
 """
 import json
 import os

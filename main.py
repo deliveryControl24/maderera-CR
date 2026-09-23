@@ -18,7 +18,7 @@ from modulos import (
 )
 from utils import centrar_ventana, formatear_numero, formatear_colones, formatear_dolares, fecha_actual
 from updater import check_on_startup, manual_check, AutoUpdater
-from config_paths import ensure_data_migration, load_config, save_config, APP_VERSION
+from config_paths import ensure_data_migration, load_config, save_config, APP_VERSION, ensure_launcher, cleanup_old_versions
 from themes import get_theme
 
 
@@ -41,6 +41,10 @@ class AppMaderera:
 
         ensure_data_migration()
         init_db()
+        try:
+            ensure_launcher()
+        except Exception:
+            pass
         self.configurar_estilos()
         self.crear_menu()
         self.crear_widgets_principales()
@@ -48,6 +52,8 @@ class AppMaderera:
 
         # Verificar actualizaciones y stock bajo al iniciar (sin congelar UI)
         self.root.after(1500, lambda: check_on_startup(self.root))
+        # Limpieza de versiones viejas (side-by-side), diferida
+        self.root.after(8000, self._limpiar_versiones_viejas)
         self.root.after(2500, self.verificar_stock_bajo)
 
     def recargar_tema(self):
@@ -404,6 +410,12 @@ class AppMaderera:
         except Exception:
             pass
 
+    def _limpiar_versiones_viejas(self):
+        try:
+            cleanup_old_versions(keep_previous=1)
+        except Exception:
+            pass
+
     def acerca_de(self):
         messagebox.showinfo("Acerca de",
             f"PINO SYSTEM - Sistema de Inventario y Facturacion KARDEX\n"
@@ -421,7 +433,7 @@ class AppMaderera:
             "  - Descargar reportes e inventario en Excel (.xlsx)\n"
             "  - Reportes Graficos\n"
             "  - Temas de interfaz (Claro / Oscuro / Bosque)\n"
-            "  - Auto-actualizacion\n\n"
+            "  - Auto-actualizacion (carpeta nueva + swap)\n\n"
             "Queres escalar tu proyecto al siguiente nivel?\n"
             "Visita: https://www.sellflow24.com/es/")
 

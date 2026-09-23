@@ -14,7 +14,10 @@ from datetime import datetime
 
 from config_paths import (
     get_updates_dir, get_version, save_config,
-    load_config, get_executable_dir, get_datos_dir, APP_NAME
+    load_config, get_executable_dir, get_datos_dir, APP_NAME,
+    get_install_root, get_versions_dir, version_dir,
+    write_current_version, read_current_version, ensure_launcher,
+    cleanup_old_versions, APP_VERSION
 )
 
 GITHUB_REPO_DEFAULT = "https://github.com/deliveryControl24/maderera-CR"
@@ -397,11 +400,39 @@ class AutoUpdater:
             return get_executable_dir()
         return os.path.dirname(os.path.abspath(__file__))
 
-    def apply_zip_update(self, zip_path):
+    def _extract_py_from_zip(self, zip_path, dest_dir):
+        """Extrae solo .py seguros del zip a dest_dir."""
+        if not zipfile.is_zipfile(zip_path):
+            raise Exception("El archivo descargado no es un zip valido")
+
+        extracted = []
+        os.makedirs(dest_dir, exist_ok=True)
+        with zipfile.ZipFile(zip_path, "r") as zf:
+            for info in zf.infolist():
+                name = info.filename.replace("\\", "/")
+                if not name.endswith(".py"):
+                    continue
+                if name.startswith("/") or ".." in name.split("/"):
+                    continue
+                if name.startswith("datos/"):
+                    continue
+                dest = os.path.join(dest_dir, *name.split("/"))
+                os.makedirs(os.path.dirname(dest), exist_ok=True)
+                with zf.open(info) as src, open(dest, "wb") as out:
+                    shutil.copyfileobj(src, out)
+                extracted.append(name)
+        if not extracted:
+            raise Exception("El zip no contiene archivos .py")
+        pyc = os.path.join(dest_dir, "__pycache__")
+        if os.path.isdir(pyc):
+            shutil.rmtree(pyc, ignore_errors=True)
+        return extracted
+
+    def apply_zip_update(self, zip_path, new_version=None):
         """
-        Actualizacion LIVIANA: descomprime solo .py sobre la carpeta del codigo.
-        - Modo fuente/portable: aplica y reinicia.
-        - Modo EXE empaquetado (frozen): NO cambia el binario; avisa.
+        Actualizacion LIVIANA en carpeta NUEVA:
+          versions/<nueva>/*.py  + current.txt  -> relanzar nuevo
+        No pisa la version que esta corriendo.
         """
         if getattr(sys, "frozen", False):
             raise Exception(
@@ -410,11 +441,111 @@ class AutoUpdater:
                 "Use actualizacion .exe (GitHub Actions genera el EXE)."
             )
 
-        target = self._app_code_dir()
-        if not os.path.isdir(target):
-            raise Exception(f"No se encontro la carpeta del codigo: {target}")
+        root = get_install_root()
+        ver = str(new_version or "").strip() or f"src_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        dest = version_dir(ver)
+        # Si la version destino es la que corre, usar sufijo
+        running = os.path.basename(get_executable_dir())
+        if os.path.basename(os.path.dirname(get_executable_dir())).lower() == "versions":
+            if ver == running:
+                ver = f"{running}_new"
 
-        # Backup rapido de .py actuales
+        dest = version_dir(ver)
+        extracted = self._extract_py_from_zip(zip_path, dest)
+
+        # Copiar assets no-.py utiles si existen en la raiz y faltan en dest
+        root_src = get_executable_dir()
+        for asset in ("pino.ico", "pino_icon.png"):
+            src = os.path.join(root_src, asset)
+            dst = os.path.join(dest, asset)
+            if os.path.exists(src) and not os.path.exists(dst):
+                try:
+                    shutil.copy2(src, dst)
+                except Exception:
+                    pass
+
+        write_current_version(ver)
+        ensure_launcher()
+
+        # Lanzar la NUEVA version (proceso nuevo); este se cierra despues
+        app_path = os.path.join(dest, "app.py")
+        if not os.path.exists(app_path):
+            raise Exception(f"No se genero {app_path}")
+
+        python = sys.executable or "python3"
+        popen_kwargs = {"cwd": dest}
+        if not sys.platform.startswith("win"):
+            popen_kwargs["start_new_session"] = True
+        subprocess.Popen([python, app_path], **popen_kwargs)
+
+        # Limpieza diferida de versiones viejas (no la que corre)
+        try:
+            cleanup_old_versions(keep_previous=1, current=ver)
+        except Exception:
+            pass
+
+        return {"version": ver, "target": dest, "extracted": extracted}
+
+    def apply_exe_side_by_side(self, new_exe_path, new_version):
+        """
+        Copia el EXE nuevo a versions/<nueva>/ SIN tocar el que corre,
+        escribe current.txt y lanza el nuevo.
+        """
+        if not os.path.isfile(new_exe_path):
+            raise Exception("No se encontro el binario descargado")
+
+        root = get_install_root()
+        ver = str(new_version or "").strip()
+        if not ver:
+            raise Exception("Falta la version destino")
+
+        dest_dir = version_dir(ver)
+        # Si destino es el mismo exe que corre, usar sufijo temporal
+        current_exe = os.path.abspath(sys.executable) if getattr(sys, "frozen", False) else ""
+        dest_exe = os.path.join(dest_dir, "PINO_SYSTEM.exe")
+        if current_exe and os.path.abspath(dest_exe) == current_exe:
+            dest_dir = version_dir(f"{ver}_new")
+            dest_exe = os.path.join(dest_dir, "PINO_SYSTEM.exe")
+
+        os.makedirs(dest_dir, exist_ok=True)
+
+        src = os.path.abspath(new_exe_path)
+        dst = os.path.abspath(dest_exe)
+        if src != dst:
+            # copia atomica: tmp -> rename
+            tmp = dst + ".tmp"
+            shutil.copy2(src, tmp)
+            os.replace(tmp, dst)
+        if not os.path.isfile(dst) or os.path.getsize(dst) < 1024:
+            raise Exception("El binario copiado esta vacio o corrupto")
+
+        if sys.platform != "win32":
+            try:
+                os.chmod(dst, 0o755)
+            except Exception:
+                pass
+
+        write_current_version(os.path.basename(dest_dir))
+        ensure_launcher()
+
+        popen_kwargs = {"cwd": dest_dir}
+        if not sys.platform.startswith("win"):
+            popen_kwargs["start_new_session"] = True
+        subprocess.Popen([dst], **popen_kwargs)
+
+        try:
+            cleanup_old_versions(keep_previous=1, current=os.path.basename(dest_dir))
+        except Exception:
+            pass
+
+        return {"version": ver, "target": dest_exe}
+
+    def apply_zip_update_inplace(self, zip_path):
+        """
+        (Legacy/fallback) extrae .py encima de la carpeta actual.
+        Solo si side-by-side falla.
+        """
+        target = self._app_code_dir()
         backup_root = os.path.join(get_datos_dir(), "backups")
         os.makedirs(backup_root, exist_ok=True)
         stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -432,19 +563,14 @@ class AutoUpdater:
                     continue
                 if name.startswith("/") or ".." in name.split("/"):
                     continue
-                # no meterse con la carpeta datos
                 if name.startswith("datos/"):
                     continue
-
                 dest = os.path.join(target, *name.split("/"))
-                dest_dir = os.path.dirname(dest)
-                os.makedirs(dest_dir, exist_ok=True)
-
+                os.makedirs(os.path.dirname(dest), exist_ok=True)
                 if os.path.exists(dest):
                     bak = os.path.join(backup_dir, *name.split("/"))
                     os.makedirs(os.path.dirname(bak), exist_ok=True)
                     shutil.copy2(dest, bak)
-
                 with zf.open(info) as src, open(dest, "wb") as out:
                     shutil.copyfileobj(src, out)
                 extracted.append(name)
@@ -452,62 +578,71 @@ class AutoUpdater:
         if not extracted:
             raise Exception("El zip no contiene archivos .py")
 
-        # Limpiar cache de imports viejos
         pyc = os.path.join(target, "__pycache__")
         if os.path.isdir(pyc):
             shutil.rmtree(pyc, ignore_errors=True)
-
         return {"extracted": extracted, "backup_dir": backup_dir, "target": target}
 
-    def apply_update(self, update_exe_path, update_format="exe"):
-        """Aplica actualizacion zip (.py) o exe. Retorna True si se senalo reinicio."""
+    def apply_update(self, update_exe_path, update_format="exe", new_version=None):
+        """
+        Aplica actualizacion:
+          - zip: extrae a versions/<nueva>/ y relanza (fuente)
+          - exe: copia a versions/<nueva>/ y relanza (side-by-side)
+        Nunca pisa el binario en uso. Retorna info del swap.
+        """
         if update_format == "zip":
-            self.apply_zip_update(update_exe_path)
-            # Reiniciar proceso actual (fuente)
-            python = sys.executable or "python3"
-            subprocess.Popen(
-                [python] + sys.argv,
-                cwd=os.path.dirname(os.path.abspath(sys.argv[0] or ".")),
-                start_new_session=True if not sys.platform.startswith("win") else False,
-            )
-            return True
+            try:
+                return self.apply_zip_update(update_exe_path, new_version)
+            except Exception:
+                # fallback inplace + reinicio del mismo proceso
+                self.apply_zip_update_inplace(update_exe_path)
+                python = sys.executable or "python3"
+                subprocess.Popen(
+                    [python] + sys.argv,
+                    cwd=os.path.dirname(os.path.abspath(sys.argv[0] or ".")),
+                    start_new_session=not sys.platform.startswith("win"),
+                )
+                return {"mode": "inplace"}
 
-        if getattr(sys, 'frozen', False):
-            current_exe = sys.executable
-        else:
-            # Desarrollo: no hay ejecutable que reemplazar
-            raise Exception("Ejecutable no encontrado (modo desarrollo)")
+        if getattr(sys, "frozen", False):
+            # Preferir side-by-side (carpeta nueva)
+            try:
+                return self.apply_exe_side_by_side(update_exe_path, new_version)
+            except Exception as e_side:
+                # Fallback legado: copia via script (puede fallar si EXE en uso)
+                current_exe = sys.executable
+                if not current_exe or not os.path.exists(current_exe):
+                    raise e_side
 
-        if not current_exe or not os.path.exists(current_exe):
-            raise Exception("No se encontro el ejecutable actual")
-
-        if sys.platform.startswith("win"):
-            bat_content = f'''@echo off
+                if sys.platform.startswith("win"):
+                    bat_content = f'''@echo off
 timeout /t 2 /nobreak >nul
 copy /Y "{update_exe_path}" "{current_exe}"
 echo Actualizacion completada
 start "" "{current_exe}"
 del "%~f0"
 '''
-            bat_path = os.path.join(self.updates_dir, "update.bat")
-            with open(bat_path, 'w') as f:
-                f.write(bat_content)
-            subprocess.Popen([bat_path], shell=True)
-            return True
+                    bat_path = os.path.join(self.updates_dir, "update.bat")
+                    with open(bat_path, "w") as f:
+                        f.write(bat_content)
+                    subprocess.Popen([bat_path], shell=True)
+                    return {"mode": "legacy_copy", "error_side_by_side": str(e_side)}
 
-        # macOS / Linux: script shell que espera, copia y relanza
-        sh_content = f'''#!/bin/sh
+                sh_content = f'''#!/bin/sh
 sleep 2
 cp -f "{update_exe_path}" "{current_exe}" || exit 1
 chmod +x "{current_exe}"
 nohup "{current_exe}" >/dev/null 2>&1 &
 '''
-        sh_path = os.path.join(self.updates_dir, "update.sh")
-        with open(sh_path, 'w') as f:
-            f.write(sh_content)
-        os.chmod(sh_path, 0o755)
-        subprocess.Popen(["/bin/sh", sh_path], start_new_session=True)
-        return True
+                sh_path = os.path.join(self.updates_dir, "update.sh")
+                with open(sh_path, "w") as f:
+                    f.write(sh_content)
+                os.chmod(sh_path, 0o755)
+                subprocess.Popen(["/bin/sh", sh_path], start_new_session=True)
+                return {"mode": "legacy_copy", "error_side_by_side": str(e_side)}
+
+        # modo desarrollo con formato exe: no hay binario
+        raise Exception("Ejecutable no encontrado (modo desarrollo)")
     
     def create_version_file(self, version, download_url, changelog="", checksum=""):
         """Crea archivo version.json para subir al servidor"""
@@ -614,6 +749,7 @@ class UpdateDialog:
                 info["download_url"],
                 info.get("checksum", ""),
                 info.get("update_format", "exe"),
+                info.get("remote_version"),
             )
         
         def on_cancel():
@@ -631,7 +767,7 @@ class UpdateDialog:
         tk.Button(cont_cancel, text="MAS TARDE", bg="#F0F0F0", fg="#212121",
                  font=("Helvetica", 10), command=on_cancel).pack()
     
-    def _start_update(self, download_url, checksum, update_format="exe"):
+    def _start_update(self, download_url, checksum, update_format="exe", new_version=None):
         """Inicia el proceso de actualizacion (exe o zip de .py)"""
         progress_win = tk.Toplevel(self.parent)
         progress_win.title("Actualizando")
@@ -707,14 +843,29 @@ class UpdateDialog:
                     msg = "Actualizacion de codigo descargada (.zip)."
                 else:
                     msg = "Actualizacion descargada correctamente."
+                msg += (
+                    "\n\nSe instalara en una carpeta nueva (versions\\...) "
+                    "sin pisar la version en uso."
+                )
                 if backup_path:
                     msg += "\n\nSe creo un backup de la version actual."
 
                 if messagebox.askyesno("Actualizacion lista", msg + "\n\nDesea reiniciar ahora?"):
                     try:
-                        self.updater.apply_update(filepath, update_format)
+                        result = self.updater.apply_update(
+                            filepath, update_format, new_version)
+                        mode = ""
+                        if isinstance(result, dict):
+                            mode = result.get("mode") or result.get("version") or ""
+                        if mode:
+                            messagebox.showinfo(
+                                "Actualizacion",
+                                f"Instalado en: {mode}\n"
+                                "La version anterior se cerro. "
+                                "Use INICIAR.bat si el acceso directo no abre.",
+                            )
                         # Cerrar la app en el hilo principal (sys.exit no sirve en threads)
-                        self.parent.after(300, self.parent.destroy)
+                        self.parent.after(400, self.parent.destroy)
                     except Exception as e:
                         messagebox.showerror("Error", f"No se pudo aplicar la actualizacion:\n{e}")
                 else:

@@ -52,31 +52,35 @@ git push -u origin main
 ------------------------------------------------------------
  3. SUBIR ACTUALIZACION DEL SISTEMA (auto-update)
 ------------------------------------------------------------
-# OPCION A - ZIP liviano (SIN compilar) - codigo .py
-# Solo sirve si la app corre desde .py (Mac / portable), NO desde EXE onefile
-python3.11 empacotar_update.py 2.4.1 "Lista de cambios"
+# El updater ahora usa SIDE-BY-SIDE:
+#   versions\<nueva>\  +  current.txt  +  INICIAR.bat
+# No pisa el EXE en uso. La app cierra sola y relanza la nueva.
+
+# OPCION A - ZIP liviano (SIN compilar) - codigo .py (Mac/portable)
+python3.11 empacotar_update.py 2.5.1 "Lista de cambios"
 git add -A
-git commit -m "Update zip 2.4.1"
+git commit -m "Update zip 2.5.1"
 git push
 # Sube updates/latest.zip + version.json
+# Cliente: descarga zip -> versions/2.5.1/*.py -> current.txt -> relanza
 
 # OPCION B - EXE en la NUBE (GitHub Actions) - RECOMENDADO para Windows
-# No compiles en Parallels. Solo etiquetas:
-git tag v2.4.1
-git push origin v2.4.1
+git tag v2.5.1
+git push origin v2.5.1
 # -> Actions arma dist/PINO_SYSTEM.exe solo
 # -> Crea Release de GitHub con el EXE
 # Bajar el EXE del Release y:
-#   updates/PINO_SYSTEM.exe + version.json -> git add -f ...
+#   updates/PINO_SYSTEM.exe + version.json -> git add ...
 
 # OPCION C - EXE a mano en Windows (si Actions no esta activo)
 build_exe.bat
-# -> dist\PINO_SYSTEM.exe
 copy /Y "dist\PINO_SYSTEM.exe" "updates\PINO_SYSTEM.exe"
 # Editar version.json con version MAYOR
 git add version.json updates/PINO_SYSTEM.exe
-git commit -m "Release v2.4.1"
+git commit -m "Release v2.5.1"
 git push
+
+# Despues de la 1a actualizacion side-by-side, abrir con INICIAR.bat
 
 # El sistema de los clientes lo detecta al iniciar o con ACTUALIZAR Sistema
 
