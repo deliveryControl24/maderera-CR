@@ -50,8 +50,11 @@ git remote add origin https://github.com/deliveryControl24/maderera-CR.git
 git remote -v
 
 ------------------------------------------------------------
- 2. SUBIR CAMBIOS (lo mas usado)
+  2. SUBIR CAMBIOS (lo mas usado)
 ------------------------------------------------------------
+# RAPIDO (Windows): doble clic en SUBIR.bat
+#   pide mensaje -> add -A -> commit -> push origin main
+
 # Ver que cambio
 git status
 git diff
