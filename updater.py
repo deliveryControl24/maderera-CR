@@ -7,12 +7,13 @@ import hashlib
 import subprocess
 import shutil
 import threading
+import zipfile
 import tkinter as tk
 from tkinter import messagebox, ttk
 from datetime import datetime
 
 from config_paths import (
-    get_updates_dir, get_version, save_config, 
+    get_updates_dir, get_version, save_config,
     load_config, get_executable_dir, get_datos_dir, APP_NAME
 )
 
@@ -237,7 +238,8 @@ class AutoUpdater:
             if e.code == 404:
                 raise Exception(
                     "Archivo no encontrado en el servidor (404).\n"
-                    "Verifique que updates/PINO_SYSTEM.exe este subido a GitHub."
+                    "Verifique que updates/latest.zip o updates/PINO_SYSTEM.exe "
+                    "este subido a GitHub (o el asset del Release)."
                 )
             elif e.code == 403:
                 raise Exception("Acceso denegado al archivo (403)")
@@ -269,6 +271,15 @@ class AutoUpdater:
             remote_version = data.get("version", "0.0.0")
             download_url = self._resolve_download_url(
                 data.get("download_url", ""), data)
+            # Formato por URL resuelta (zip = .py liviano, resto = exe)
+            url_path = (download_url or "").split("?")[0].lower()
+            update_format = (data.get("update_format") or "").lower()
+            if url_path.endswith(".zip"):
+                update_format = "zip"
+            elif url_path.endswith((".exe", ".bin", ".app")):
+                update_format = "exe"
+            elif not update_format:
+                update_format = "zip" if url_path.endswith(".zip") else "exe"
             changelog = data.get("changelog", "Sin detalles")
             checksum = data.get("checksum", "")
             min_size = data.get("min_size", 0)
@@ -278,6 +289,7 @@ class AutoUpdater:
                     "update_available": True,
                     "remote_version": remote_version,
                     "download_url": download_url,
+                    "update_format": update_format,
                     "changelog": changelog,
                     "checksum": checksum,
                     "min_size": min_size
@@ -379,8 +391,87 @@ class AutoUpdater:
         except:
             return False
     
-    def apply_update(self, update_exe_path):
-        """Aplica la actualizacion (Windows, macOS, Linux) y retorna True si se senalo reinicio."""
+    def _app_code_dir(self):
+        """Carpeta donde viven los .py de la aplicacion."""
+        if getattr(sys, "frozen", False):
+            return get_executable_dir()
+        return os.path.dirname(os.path.abspath(__file__))
+
+    def apply_zip_update(self, zip_path):
+        """
+        Actualizacion LIVIANA: descomprime solo .py sobre la carpeta del codigo.
+        - Modo fuente/portable: aplica y reinicia.
+        - Modo EXE empaquetado (frozen): NO cambia el binario; avisa.
+        """
+        if getattr(sys, "frozen", False):
+            raise Exception(
+                "Esta version esta empaquetada como EXE.\n"
+                "Un zip de .py no puede reemplazar el binario.\n"
+                "Use actualizacion .exe (GitHub Actions genera el EXE)."
+            )
+
+        target = self._app_code_dir()
+        if not os.path.isdir(target):
+            raise Exception(f"No se encontro la carpeta del codigo: {target}")
+
+        # Backup rapido de .py actuales
+        backup_root = os.path.join(get_datos_dir(), "backups")
+        os.makedirs(backup_root, exist_ok=True)
+        stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        backup_dir = os.path.join(backup_root, f"src_{stamp}")
+        os.makedirs(backup_dir, exist_ok=True)
+
+        if not zipfile.is_zipfile(zip_path):
+            raise Exception("El archivo descargado no es un zip valido")
+
+        extracted = []
+        with zipfile.ZipFile(zip_path, "r") as zf:
+            for info in zf.infolist():
+                name = info.filename.replace("\\", "/")
+                if not name.endswith(".py"):
+                    continue
+                if name.startswith("/") or ".." in name.split("/"):
+                    continue
+                # no meterse con la carpeta datos
+                if name.startswith("datos/"):
+                    continue
+
+                dest = os.path.join(target, *name.split("/"))
+                dest_dir = os.path.dirname(dest)
+                os.makedirs(dest_dir, exist_ok=True)
+
+                if os.path.exists(dest):
+                    bak = os.path.join(backup_dir, *name.split("/"))
+                    os.makedirs(os.path.dirname(bak), exist_ok=True)
+                    shutil.copy2(dest, bak)
+
+                with zf.open(info) as src, open(dest, "wb") as out:
+                    shutil.copyfileobj(src, out)
+                extracted.append(name)
+
+        if not extracted:
+            raise Exception("El zip no contiene archivos .py")
+
+        # Limpiar cache de imports viejos
+        pyc = os.path.join(target, "__pycache__")
+        if os.path.isdir(pyc):
+            shutil.rmtree(pyc, ignore_errors=True)
+
+        return {"extracted": extracted, "backup_dir": backup_dir, "target": target}
+
+    def apply_update(self, update_exe_path, update_format="exe"):
+        """Aplica actualizacion zip (.py) o exe. Retorna True si se senalo reinicio."""
+        if update_format == "zip":
+            self.apply_zip_update(update_exe_path)
+            # Reiniciar proceso actual (fuente)
+            python = sys.executable or "python3"
+            subprocess.Popen(
+                [python] + sys.argv,
+                cwd=os.path.dirname(os.path.abspath(sys.argv[0] or ".")),
+                start_new_session=True if not sys.platform.startswith("win") else False,
+            )
+            return True
+
         if getattr(sys, 'frozen', False):
             current_exe = sys.executable
         else:
@@ -519,7 +610,11 @@ class UpdateDialog:
         
         def on_update():
             dialog.destroy()
-            self._start_update(info["download_url"], info.get("checksum", ""))
+            self._start_update(
+                info["download_url"],
+                info.get("checksum", ""),
+                info.get("update_format", "exe"),
+            )
         
         def on_cancel():
             dialog.destroy()
@@ -536,8 +631,8 @@ class UpdateDialog:
         tk.Button(cont_cancel, text="MAS TARDE", bg="#F0F0F0", fg="#212121",
                  font=("Helvetica", 10), command=on_cancel).pack()
     
-    def _start_update(self, download_url, checksum):
-        """Inicia el proceso de actualizacion"""
+    def _start_update(self, download_url, checksum, update_format="exe"):
+        """Inicia el proceso de actualizacion (exe o zip de .py)"""
         progress_win = tk.Toplevel(self.parent)
         progress_win.title("Actualizando")
         progress_win.geometry("400x180")
@@ -589,11 +684,13 @@ class UpdateDialog:
                 real_ext = os.path.splitext(url_path)[1]
                 if real_ext:
                     ext = real_ext
+                elif update_format == "zip":
+                    ext = ".zip"
                 filename = f"{APP_NAME}_update{ext}"
                 filepath = os.path.join(self.updater.updates_dir, filename)
-                
+
                 self.updater._download_file(download_url, filepath, progress_callback)
-                
+
                 # 3. Verificar checksum
                 if checksum:
                     status_label.config(text="Verificando archivo...")
@@ -602,17 +699,20 @@ class UpdateDialog:
                         progress_win.destroy()
                         messagebox.showerror("Error", "El archivo descargado esta corrupto.\nIntente de nuevo.")
                         return
-                
+
                 progress_win.destroy()
-                
+
                 # 4. Preguntar si desea reiniciar
-                msg = "Actualizacion descargada correctamente."
+                if update_format == "zip":
+                    msg = "Actualizacion de codigo descargada (.zip)."
+                else:
+                    msg = "Actualizacion descargada correctamente."
                 if backup_path:
                     msg += "\n\nSe creo un backup de la version actual."
-                
+
                 if messagebox.askyesno("Actualizacion lista", msg + "\n\nDesea reiniciar ahora?"):
                     try:
-                        self.updater.apply_update(filepath)
+                        self.updater.apply_update(filepath, update_format)
                         # Cerrar la app en el hilo principal (sys.exit no sirve en threads)
                         self.parent.after(300, self.parent.destroy)
                     except Exception as e:

@@ -1,11 +1,13 @@
 {
-  "version": "2.3.0",
+  "version": "2.4.0",
   "download_url": "updates/PINO_SYSTEM.exe",
   "download_url_win": "updates/PINO_SYSTEM.exe",
-  "download_url_mac": "updates/PINO_SYSTEM",
-  "download_url_linux": "updates/PINO_SYSTEM",
-  "changelog": "PINO SYSTEM v2.3.0\n- Descargar reportes e inventario en Excel (.xlsx)\n- Boton DESCARGAR EXCEL en Reportes\n- Exportar inventario de productos a Excel\n- Incluye filtros y formato en el archivo\n- Temas Claro/Oscuro/Bosque\n- Rendimiento SQLite",
+  "download_url_mac": "updates/latest.zip",
+  "download_url_linux": "updates/latest.zip",
+  "changelog": "PINO SYSTEM v2.4.0\n- Actualizaciones ligeras por ZIP (.py) sin compilar\n- Build automatico del EXE en GitHub Actions\n- Excel en reportes e inventario\n- Temas Claro/Oscuro/Bosque",
   "checksum": "",
   "updated_at": "2026-09-23",
-  "min_size": 1024000
+  "min_size": 1000,
+  "update_format": "exe",
+  "download_url_exe_win": "updates/PINO_SYSTEM.exe"
 }

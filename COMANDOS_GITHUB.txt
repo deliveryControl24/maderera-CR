@@ -52,39 +52,33 @@ git push -u origin main
 ------------------------------------------------------------
  3. SUBIR ACTUALIZACION DEL SISTEMA (auto-update)
 ------------------------------------------------------------
-# a) Compilar EXE en Windows
+# OPCION A - ZIP liviano (SIN compilar) - codigo .py
+# Solo sirve si la app corre desde .py (Mac / portable), NO desde EXE onefile
+python3.11 empacotar_update.py 2.4.1 "Lista de cambios"
+git add -A
+git commit -m "Update zip 2.4.1"
+git push
+# Sube updates/latest.zip + version.json
+
+# OPCION B - EXE en la NUBE (GitHub Actions) - RECOMENDADO para Windows
+# No compiles en Parallels. Solo etiquetas:
+git tag v2.4.1
+git push origin v2.4.1
+# -> Actions arma dist/PINO_SYSTEM.exe solo
+# -> Crea Release de GitHub con el EXE
+# Bajar el EXE del Release y:
+#   updates/PINO_SYSTEM.exe + version.json -> git add -f ...
+
+# OPCION C - EXE a mano en Windows (si Actions no esta activo)
 build_exe.bat
 # -> dist\PINO_SYSTEM.exe
-
-# b) Copiar binario al repo
 copy /Y "dist\PINO_SYSTEM.exe" "updates\PINO_SYSTEM.exe"
-
-# c) Subir version.json con version MAYOR (ej 2.2.0)
-#    Archivo: version.json (raiz del repo)
-#    Ejemplo:
-#    {
-#      "version": "2.2.0",
-#      "download_url": "updates/PINO_SYSTEM.exe",
-#      "download_url_win": "updates/PINO_SYSTEM.exe",
-#      "download_url_mac": "updates/PINO_SYSTEM",
-#      "changelog": "Lista de cambios",
-#      "checksum": "",
-#      "updated_at": "2026-09-23",
-#      "min_size": 1024000
-#    }
-
-# d) Commitear y publicar
+# Editar version.json con version MAYOR
 git add version.json updates/PINO_SYSTEM.exe
-git commit -m "Release v2.2.0"
+git commit -m "Release v2.4.1"
 git push
 
 # El sistema de los clientes lo detecta al iniciar o con ACTUALIZAR Sistema
-
-# Nota: .gitignore excluye updates/*.exe por defecto
-# Para forzar subir el exe:
-git add -f updates/PINO_SYSTEM.exe
-git commit -m "Release: binario v2.2.0"
-git push
 
 ------------------------------------------------------------
  4. HISTORIAL / CONSULTAR
