@@ -21,3 +21,6 @@ updates/*.zip
 !updates/ACTUALIZADOR.exe
 # Zip de codigo (.py) para updates livianos
 !updates/latest.zip
+
+# Paquete de entrega al cliente (no al repo)
+PINO_SYSTEM_v*.zip
