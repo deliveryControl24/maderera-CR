@@ -7,6 +7,7 @@ MADERERA CR.zip
 dist/
 build/
 *.spec
+paquete_pino/
 # Binarios de actualizacion: subir a mano con git add -f
 updates/*.bin
 updates/*.zip
