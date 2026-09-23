@@ -17,5 +17,7 @@ updates/*.zip
 !updates/.gitkeep
 # El EXE de actualizacion SI se sube (lo pide el updater)
 !updates/PINO_SYSTEM.exe
+# Actualizador chico aparte
+!updates/ACTUALIZADOR.exe
 # Zip de codigo (.py) para updates livianos
 !updates/latest.zip

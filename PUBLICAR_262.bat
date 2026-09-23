@@ -85,9 +85,24 @@ if exist "version.json" copy /Y "version.json" "paquete_pino\version.json" >nul
 if exist "version.json" copy /Y "version.json" "paquete_pino\updates\version.json" >nul
 if exist "updates\latest.zip" copy /Y "updates\latest.zip" "paquete_pino\updates\latest.zip" >nul
 
+rem ---------- 3b) ACTUALIZADOR.exe (chico) ----------
+echo [3b] Compilar ACTUALIZADOR.exe ...
+pushd "%BUILDROOT%"
+copy /Y "%~dp0actualizador.py" "actualizador.py" >nul 2>nul
+python -m PyInstaller --noconfirm --onefile --windowed --name ACTUALIZADOR actualizador.py
+if exist "dist\ACTUALIZADOR.exe" (
+  copy /Y "dist\ACTUALIZADOR.exe" "%~dp0paquete_pino\ACTUALIZADOR.exe"
+  if exist "%~dp0updates" copy /Y "dist\ACTUALIZADOR.exe" "%~dp0updates\ACTUALIZADOR.exe"
+  echo   ACTUALIZADOR.exe listo en paquete_pino\
+) else (
+  echo   [AVISO] No se genero ACTUALIZADOR.exe (seguimos con el principal)
+)
+popd
+
 rem ---------- 4) Push EXE ----------
 echo [4/4] Subir EXE a GitHub...
-git add updates/PINO_SYSTEM.exe version.json updates/latest.zip
+git add updates/PINO_SYSTEM.exe updates/ACTUALIZADOR.exe version.json updates/latest.zip actualizador.py 2>nul
+git add updates/PINO_SYSTEM.exe version.json updates/latest.zip actualizador.py
 git commit -m "v2.6.1: EXE real con codigo nuevo (dialogo 1 clic)" || echo (EXE ya era igual)
 git push origin main
 if errorlevel 1 (
