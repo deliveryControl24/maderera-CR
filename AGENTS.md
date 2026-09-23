@@ -20,7 +20,9 @@ git commit -m "v<NUEVA_VERSION>: descripcion"
 git push origin main
 ```
 
-Si hay EXE Windows, ademas rebuild + subir `updates/PINO_SYSTEM.exe` (ej. `PUBLICAR_260.bat` o equivalente de la version actual).
+Si hay EXE Windows, ademas rebuild + subir `updates/PINO_SYSTEM.exe` (ej. `PUBLICAR_261.bat`).
+
+**Si solo se sube `version.json` y NO el EXE nuevo**, el cliente “se actualiza” pero sigue corriendo el binario viejo y el aviso se repite para siempre. El EXE debe recompilarse en Windows (no en el share de Parallels) y subirse en el mismo release.
 
 Verificar despues del push:
 https://raw.githubusercontent.com/deliveryControl24/maderera-CR/main/version.json
@@ -31,3 +33,4 @@ https://raw.githubusercontent.com/deliveryControl24/maderera-CR/main/version.jso
 - Compilar: `python3.11 -m py_compile app.py main.py modulos.py config_paths.py`
 - No emojis en Tkinter (crash macOS)
 - Push desde Mac falla 403 -> push desde Windows con PAT `deliveryControl24`
+- Build EXE: solo en Windows local (`PUBLICAR_261.bat`); PyInstaller no sirve en el share de Parallels ni en Mac
