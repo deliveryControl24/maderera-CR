@@ -12,7 +12,9 @@ set /p MSG=Mensaje del commit (Enter = "cambios locales"):
 
 if "%MSG%"=="" set MSG=cambios locales
 
-git add -A
+rem NUNCA add -A: excluye .github (PAT sin workflow) y *.lnk
+git reset HEAD -- .github 2>nul
+git add -A -- . ':!.github' ':!*.lnk'
 git commit -m "%MSG%"
 if errorlevel 1 (
   echo.

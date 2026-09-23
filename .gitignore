@@ -8,6 +8,9 @@ dist/
 build/
 *.spec
 paquete_pino/
+*.lnk
+# Workflow de Actions: el PAT actual NO tiene scope workflow -> no subirlo
+.github/
 # Binarios de actualizacion: subir a mano con git add -f
 updates/*.bin
 updates/*.zip
