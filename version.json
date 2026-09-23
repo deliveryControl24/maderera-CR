@@ -5,7 +5,7 @@
   "download_url_mac": "updates/latest.zip",
   "download_url_linux": "updates/latest.zip",
   "download_url_zip": "updates/latest.zip",
-  "changelog": "Novedades 2.6.5\n\n- Al actualizar se REEMPLAZA el PINO_SYSTEM.exe en su misma carpeta\n- No se crean carpetas versions nuevas\n- Los datos guardados (BD, config) NO se tocan\n- INICIAR.bat abre el EXE de la raiz\n- Dialogo de actualizacion legible (changelog y botones)",
+  "changelog": "Novedades 2.6.5\n\n- Al actualizar se REEMPLAZA el PINO_SYSTEM.exe en su misma carpeta\n- No se crean carpetas versions nuevas\n- Los datos guardados (BD, config) NO se tocan\n- INICIAR.bat abre el EXE de la raiz\n- Dialogo de actualizacion siempre visible (changelog y botones)",
   "checksum": "",
   "updated_at": "2026-09-23",
   "min_size": 1000,
