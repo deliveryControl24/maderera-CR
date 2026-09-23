@@ -1,0 +1,15 @@
+__pycache__/
+*.pyc
+.DS_Store
+.kilo/
+*.db
+MADERERA CR.zip
+dist/
+build/
+*.spec
+# Binarios de actualizacion: subir a mano con git add -f
+updates/*.bin
+updates/*.zip
+!updates/.gitkeep
+# El EXE de actualizacion SI se sube (lo pide el updater)
+!updates/PINO_SYSTEM.exe
