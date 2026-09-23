@@ -5,6 +5,28 @@ Repo: https://github.com/deliveryControl24/maderera-CR
 Carpeta: C:\Mac\Home\Desktop\MADERERA CR  (Windows)
          /Users/carloberry/Desktop/MADERERA CR  (Mac)
 
+########################################################
+ # REGLA DE ORO
+ # DESPUES DE CADA ACTUALIZACION SUBIR version.json
+ # (y el zip/EXE correspondiente). Sin version.json
+ # con version mayor, el cliente no ve el update ni
+ # la lista de bugs corregidos.
+########################################################
+
+------------------------------------------------------------
+ 0. CHECKLIST DE CADA ACTUALIZACION (SIEMPRE)
+------------------------------------------------------------
+# 1) Bump APP_VERSION en config_paths.py
+# 2) Generar zip + version.json:
+python3.11 empacotar_update.py 2.6.1 "Bugs corregidos: ..."
+# 3) Commit SIEMPRE incluye version.json
+git add config_paths.py app.py main.py modulos.py version.json updates/latest.zip
+git commit -m "v2.6.1: descripcion"
+git push origin main
+# 4) Si hay EXE Windows: rebuild y subir updates/PINO_SYSTEM.exe
+# 5) Verificar:
+#    https://raw.githubusercontent.com/deliveryControl24/maderera-CR/main/version.json
+
 ------------------------------------------------------------
  1. PRIMERA VEZ (configurar)
 ------------------------------------------------------------
@@ -34,7 +56,7 @@ git remote -v
 git status
 git diff
 
-# Guardar TODO
+# Guardar TODO (+ version.json si hubo release)
 git add -A
 git commit -m "Descripcion clara del cambio"
 git push
@@ -42,7 +64,7 @@ git push --set-upstream origin main
 git push -u origin main --force
 
 # Guardar solo archivos especificos
-git add app.py main.py modulos.py updater.py
+git add app.py main.py modulos.py updater.py version.json
 git commit -m "Fix: update check no congela la UI"
 git push
 
@@ -52,21 +74,23 @@ git push -u origin main
 ------------------------------------------------------------
  3. SUBIR ACTUALIZACION DEL SISTEMA (auto-update)
 ------------------------------------------------------------
-# El updater ahora usa SIDE-BY-SIDE:
+# El updater ahora usa SIDE-BY-S-side:
 #   versions\<nueva>\  +  current.txt  +  INICIAR.bat
 # No pisa el EXE en uso. La app cierra sola y relanza la nueva.
 
+# REGLA: SIEMPRE version.json + zip/EXE en el mismo push
+
 # OPCION A - ZIP liviano (SIN compilar) - codigo .py (Mac/portable)
-python3.11 empacotar_update.py 2.5.1 "Lista de cambios"
+python3.11 empacotar_update.py 2.6.1 "Lista de cambios"
 git add -A
-git commit -m "Update zip 2.5.1"
+git commit -m "Update zip 2.6.1"
 git push
 # Sube updates/latest.zip + version.json
-# Cliente: descarga zip -> versions/2.5.1/*.py -> current.txt -> relanza
+# Cliente: descarga zip -> versions/2.6.1/*.py -> current.txt -> relanza
 
 # OPCION B - EXE en la NUBE (GitHub Actions) - RECOMENDADO para Windows
-git tag v2.5.1
-git push origin v2.5.1
+git tag v2.6.1
+git push origin v2.6.1
 # -> Actions arma dist/PINO_SYSTEM.exe solo
 # -> Crea Release de GitHub con el EXE
 # Bajar el EXE del Release y:
@@ -75,9 +99,9 @@ git push origin v2.5.1
 # OPCION C - EXE a mano en Windows (si Actions no esta activo)
 build_exe.bat
 copy /Y "dist\PINO_SYSTEM.exe" "updates\PINO_SYSTEM.exe"
-# Editar version.json con version MAYOR
+# version.json DEBE quedar con la MISMA version que el EXE
 git add version.json updates/PINO_SYSTEM.exe
-git commit -m "Release v2.5.1"
+git commit -m "Release v2.6.1"
 git push
 
 # Despues de la 1a actualizacion side-by-side, abrir con INICIAR.bat
@@ -133,6 +157,11 @@ host=github.com
 # o
 git config --global --unset credential.helper
 
+# Olvide version.json en el ultimo release -> SUBIRLO YA
+git add version.json
+git commit -m "fix: version.json faltante del release"
+git push
+
 ------------------------------------------------------------
  8. VERIFICAR ACTUALIZADOR (desde navegador)
 ------------------------------------------------------------
@@ -149,8 +178,17 @@ https://raw.githubusercontent.com/deliveryControl24/maderera-CR/main/updates/PIN
 ------------------------------------------------------------
  9. RESUMEN RAPIDO (dia a dia)
 ------------------------------------------------------------
+# Si es una actualizacion/release:
+python3.11 empacotar_update.py <ver> "cambios"
+git add -A
+git commit -m "v<ver>: que hice"
+git push
+
+# Si NO es release (solo arreglos de repo/docs):
 git add -A
 git commit -m "que hice"
 git push
+# -> version.json solo si cambia la version del sistema
 
 ============================================================
+

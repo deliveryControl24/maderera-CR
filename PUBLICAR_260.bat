@@ -6,7 +6,7 @@ echo  PUBLICAR v2.6.0
 echo ============================================
 echo.
 echo [1/3] Subir codigo + version.json + zip...
-git add config_paths.py app.py main.py modulos.py version.json updates/latest.zip PUBLICAR_251.bat
+git add config_paths.py app.py main.py modulos.py version.json updates/latest.zip PUBLICAR_260.bat PUBLICAR_251.bat
 git commit -m "v2.6.0: version visible + modulos ocultables" || echo (ya estaba commiteado - seguimos)
 git push origin main
 if errorlevel 1 (

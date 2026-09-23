@@ -124,7 +124,8 @@ def main():
 
     build_zip()
     update_version_json(version, changelog, kind)
-    print("\nSiguiente: git add -A && git commit && git push")
+    print("\nREGLA: SIEMPRE subir version.json en el mismo push.")
+    print("Siguiente: git add config_paths.py app.py main.py modulos.py version.json updates/latest.zip && git commit && git push")
     print("Zip: updates/latest.zip | manifest: version.json")
 
 
