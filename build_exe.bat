@@ -16,8 +16,9 @@ if errorlevel 1 (
 )
 
 python --version
-echo Instalando PyInstaller...
-python -m pip install --upgrade pyinstaller pillow --quiet
+echo Instalando PyInstaller y openpyxl...
+python -m pip install --upgrade pyinstaller pillow openpyxl --quiet
+python -m pip install --upgrade openpyxl --quiet
 
 if not exist pino.ico (
   echo [AVISO] No existe pino.ico - se creara sin icono personalizado.
@@ -35,6 +36,9 @@ python -m PyInstaller ^
   %ICON_ARG% ^
   --add-data "pino.ico;." ^
   --add-data "pino_icon.png;." ^
+  --hidden-import openpyxl ^
+  --hidden-import openpyxl.cell._writer ^
+  --collect-all openpyxl ^
   app.py
 
 if exist "dist\PINO_SYSTEM.exe" (

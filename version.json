@@ -1,10 +1,10 @@
 {
-  "version": "2.2.0",
+  "version": "2.3.0",
   "download_url": "updates/PINO_SYSTEM.exe",
   "download_url_win": "updates/PINO_SYSTEM.exe",
   "download_url_mac": "updates/PINO_SYSTEM",
   "download_url_linux": "updates/PINO_SYSTEM",
-  "changelog": "PINO SYSTEM v2.2.0\n- Nuevos temas de interfaz: Claro, Oscuro y Bosque\n- Configuracion: selector de tema en pestaña General\n- Rendimiento: indices SQLite, cache de config, busquedas mas fluidas\n- Actualizador via GitHub estable",
+  "changelog": "PINO SYSTEM v2.3.0\n- Descargar reportes e inventario en Excel (.xlsx)\n- Boton DESCARGAR EXCEL en Reportes\n- Exportar inventario de productos a Excel\n- Incluye filtros y formato en el archivo\n- Temas Claro/Oscuro/Bosque\n- Rendimiento SQLite",
   "checksum": "",
   "updated_at": "2026-09-23",
   "min_size": 1024000

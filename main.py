@@ -418,6 +418,7 @@ class AppMaderera:
             "  - Facturacion con IVA configurable\n"
             "  - Clientes\n"
             "  - Reportes e Informes\n"
+            "  - Descargar reportes e inventario en Excel (.xlsx)\n"
             "  - Reportes Graficos\n"
             "  - Temas de interfaz (Claro / Oscuro / Bosque)\n"
             "  - Auto-actualizacion\n\n"

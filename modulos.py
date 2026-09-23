@@ -9,6 +9,7 @@ from utils import (
     formatear_dolares, convertir_a_dolares, convertir_a_colones,
     fecha_actual, fecha_solo, exportar_a_csv
 )
+from excel_export import exportar_excel, tree_a_excel
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -1995,8 +1996,11 @@ class ProductosModulo:
         _debounce(self.entry_buscar, 250, self.buscar_producto)
         btn_exp = tk.Frame(busca_frame, bg="#455A64", padx=2, pady=2)
         btn_exp.pack(side=tk.RIGHT, padx=5)
-        tk.Button(btn_exp, text="Exportar CSV", bg="#F0F0F0", fg="#212121",
-                  font=("Helvetica", 9), command=self.exportar, relief=tk.FLAT).pack()
+        tk.Button(btn_exp, text="Excel", bg="#F0F0F0", fg="#212121",
+                  font=("Helvetica", 9, "bold"), command=self.exportar_excel,
+                  relief=tk.FLAT).pack(side=tk.LEFT, padx=1)
+        tk.Button(btn_exp, text="CSV", bg="#F0F0F0", fg="#212121",
+                  font=("Helvetica", 9), command=self.exportar, relief=tk.FLAT).pack(side=tk.LEFT)
 
         columnas = ("id", "codigo", "nombre", "categoria", "unidad", "pcompra_crc",
                     "pventa_crc", "pcompra_usd", "pventa_usd", "stock", "descripcion")
@@ -2183,6 +2187,22 @@ class ProductosModulo:
             filetypes=[("CSV", "*.csv")], initialfile="productos.csv")
         if archivo:
             exportar_a_csv(self.tree, archivo)
+
+    def exportar_excel(self):
+        archivo = filedialog.asksaveasfilename(
+            defaultextension=".xlsx",
+            filetypes=[("Excel", "*.xlsx")],
+            initialfile="inventario_productos.xlsx")
+        if not archivo:
+            return
+        ok, msg = tree_a_excel(
+            self.tree, archivo,
+            titulo="INVENTARIO DE PRODUCTOS / MADERAS",
+            hoja="Inventario")
+        if ok:
+            messagebox.showinfo("Excel", f"Exportado correctamente:\n{msg}")
+        else:
+            messagebox.showerror("Excel", f"No se pudo exportar:\n{msg}")
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -2964,6 +2984,77 @@ class ReportesModulo:
         self.text_res = tk.Text(self.ventana, font=("Courier", 9), bg="white", wrap=tk.WORD)
         self.text_res.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
 
+        # Pie: exportar el reporte actual a Excel / CSV
+        pie = tk.Frame(self.ventana, bg="#ECEFF1")
+        pie.pack(fill=tk.X, padx=10, pady=(0, 8))
+        self.lbl_reporte_actual = tk.Label(
+            pie, text="Genere un reporte y luego exportelo a Excel",
+            bg="#ECEFF1", fg="#546E7A", font=("Helvetica", 9))
+        self.lbl_reporte_actual.pack(side=tk.LEFT, padx=4)
+
+        c_exp = tk.Frame(pie, bg="#2E7D32", padx=2, pady=2)
+        c_exp.pack(side=tk.RIGHT, padx=4)
+        tk.Button(c_exp, text="DESCARGAR EXCEL", bg="#F0F0F0", fg="#212121",
+                  font=("Helvetica", 9, "bold"), command=self.exportar_excel_actual,
+                  relief=tk.FLAT).pack()
+
+        c_csv = tk.Frame(pie, bg="#1565C0", padx=2, pady=2)
+        c_csv.pack(side=tk.RIGHT, padx=4)
+        tk.Button(c_csv, text="CSV", bg="#F0F0F0", fg="#212121",
+                  font=("Helvetica", 9), command=self.exportar_csv_actual,
+                  relief=tk.FLAT).pack()
+
+        self._excel_headers = []
+        self._excel_rows = []
+        self._excel_nombre = "reporte"
+        self._excel_titulo = "REPORTE"
+
+    def _set_excel_data(self, headers, rows, nombre, titulo):
+        self._excel_headers = headers
+        self._excel_rows = rows
+        self._excel_nombre = nombre
+        self._excel_titulo = titulo
+        self.lbl_reporte_actual.config(
+            text=f"Reporte listo: {titulo} ({len(rows)} filas)")
+
+    def exportar_excel_actual(self):
+        if not self._excel_headers or not self._excel_rows:
+            messagebox.showinfo("Excel", "Primero genere un reporte.")
+            return
+        archivo = filedialog.asksaveasfilename(
+            defaultextension=".xlsx",
+            filetypes=[("Excel", "*.xlsx")],
+            initialfile=f"{self._excel_nombre}.xlsx")
+        if not archivo:
+            return
+        ok, msg = exportar_excel(
+            archivo, self._excel_headers, self._excel_rows,
+            titulo=self._excel_titulo, hoja=self._excel_nombre[:31])
+        if ok:
+            messagebox.showinfo("Excel", f"Descargado correctamente:\n{msg}")
+        else:
+            messagebox.showerror("Excel", f"No se pudo exportar:\n{msg}")
+
+    def exportar_csv_actual(self):
+        if not self._excel_headers or not self._excel_rows:
+            messagebox.showinfo("CSV", "Primero genere un reporte.")
+            return
+        archivo = filedialog.asksaveasfilename(
+            defaultextension=".csv",
+            filetypes=[("CSV", "*.csv")],
+            initialfile=f"{self._excel_nombre}.csv")
+        if not archivo:
+            return
+        try:
+            import csv
+            with open(archivo, "w", newline="", encoding="utf-8-sig") as f:
+                w = csv.writer(f)
+                w.writerow(self._excel_headers)
+                w.writerows(self._excel_rows)
+            messagebox.showinfo("CSV", f"Exportado:\n{archivo}")
+        except Exception as e:
+            messagebox.showerror("CSV", str(e))
+
     def _limpiar(self):
         self.text_res.config(state=tk.NORMAL)
         self.text_res.delete("1.0", tk.END)
@@ -2985,11 +3076,21 @@ class ReportesModulo:
              f"                    Fecha: {fecha_actual()} | TC: CRC {self.tc}", "="*95,
              f"{'Codigo':<8} {'Nombre':<22} {'Categoria':<16} {'Stock':>7} {'P.Compra':>12} {'P.Venta':>12} {'P.Venta $':>10}",
              "-"*95]
+        headers = ["Codigo", "Nombre", "Categoria", "Unidad", "Stock",
+                   "Precio Compra CRC", "Precio Venta CRC", "Precio Venta USD"]
+        rows = []
         for p in prods:
             s = self._stock(p["codigo"])
             l.append(f"{p['codigo']:<8} {p['nombre'][:22]:<22} {(p['cat'] or 'N/A')[:16]:<16} {s:>7.1f} {p['precio_compra']:>12,.2f} {p['precio_venta']:>12,.2f} USD {p['precio_venta_usd']:>8.2f}")
+            rows.append([
+                p["codigo"], p["nombre"], p["cat"] or "N/A",
+                p["unidad_medida"] or "", s,
+                p["precio_compra"] or 0, p["precio_venta"] or 0,
+                p["precio_venta_usd"] or 0,
+            ])
         l += ["-"*95, f"Total: {len(prods)}", "="*95]
         self.text_res.insert(tk.END, "\n".join(l)); self.text_res.config(state=tk.DISABLED)
+        self._set_excel_data(headers, rows, "inventario_actual", "INVENTARIO ACTUAL")
 
     def r_bajo(self):
         self._limpiar()
@@ -2997,14 +3098,20 @@ class ReportesModulo:
         l = ["="*80, "              PRODUCTOS CON STOCK BAJO EL MINIMO",
              f"              Fecha: {fecha_actual()}", "="*80,
              f"{'Codigo':<10} {'Nombre':<25} {'Unidad':<8} {'Minimo':>10} {'Actual':>10} {'Estado':>10}", "-"*80]
+        headers = ["Codigo", "Nombre", "Unidad", "Stock Minimo", "Stock Actual", "Estado"]
+        rows = []
         c = 0
         for p in prods:
             s = self._stock(p["codigo"])
             if s < p["stock_minimo"]:
                 c += 1
-                l.append(f"{p['codigo']:<10} {p['nombre'][:25]:<25} {p['unidad_medida']:<8} {p['stock_minimo']:>10.1f} {s:>10.1f} {'CRITICO' if s==0 else 'BAJO':>10}")
+                estado = "CRITICO" if s == 0 else "BAJO"
+                l.append(f"{p['codigo']:<10} {p['nombre'][:25]:<25} {p['unidad_medida']:<8} {p['stock_minimo']:>10.1f} {s:>10.1f} {estado:>10}")
+                rows.append([p["codigo"], p["nombre"], p["unidad_medida"],
+                             p["stock_minimo"] or 0, s, estado])
         l += ["-"*80, f"Total bajo minimo: {c}", "="*80]
         self.text_res.insert(tk.END, "\n".join(l)); self.text_res.config(state=tk.DISABLED)
+        self._set_excel_data(headers, rows, "stock_bajo", "STOCK BAJO MINIMO")
 
     def r_kardex(self):
         self._limpiar()
@@ -3012,10 +3119,19 @@ class ReportesModulo:
         l = ["="*100, f"                    REPORTE KARDEX | TC: CRC {self.tc}",
              f"                    Fecha: {fecha_actual()}", "="*100,
              f"{'Fecha':<14} {'Tipo':<7} {'Producto':<18} {'Cant':>6} {'P.U':>10} {'Total':>12} {'Saldo C':>7} {'Saldo V':>12} {'Saldo USD':>10}", "-"*100]
+        headers = ["Fecha", "Tipo", "Codigo", "Producto", "Cantidad",
+                   "Precio Unit.", "Total", "Saldo Cant.", "Saldo Valor CRC", "Saldo Valor USD"]
+        rows = []
         for m in movs:
             l.append(f"{m['fecha'][:13]:<14} {m['tipo_movimiento']:<7} {m['nombre'][:18]:<18} {m['cantidad']:>6.1f} {m['precio_unitario']:>10.2f} {m['total']:>12.2f} {m['saldo_cantidad']:>7.1f} {m['saldo_valor']:>12.2f} USD {m['saldo_valor_usd']:>8.2f}")
+            rows.append([
+                m["fecha"], m["tipo_movimiento"], m["codigo"], m["nombre"],
+                m["cantidad"], m["precio_unitario"], m["total"],
+                m["saldo_cantidad"], m["saldo_valor"], m["saldo_valor_usd"] or 0,
+            ])
         l += ["="*100, f"Total: {len(movs)}"]
         self.text_res.insert(tk.END, "\n".join(l)); self.text_res.config(state=tk.DISABLED)
+        self._set_excel_data(headers, rows, "kardex_general", "KARDEX GENERAL")
 
     def r_ventas(self):
         self._limpiar()
@@ -3023,12 +3139,21 @@ class ReportesModulo:
         l = ["="*95, f"                    REPORTE DE VENTAS | TC: CRC {self.tc}",
              f"                    Fecha: {fecha_actual()}", "="*95,
              f"{'N Factura':<13} {'Fecha':<14} {'Cliente':<22} {'Mon':>4} {'Sub CRC':>12} {'Sub USD':>10} {'Total CRC':>12} {'Total USD':>10}", "-"*95]
+        headers = ["N Factura", "Fecha", "Cliente", "Moneda",
+                   "Subtotal CRC", "Subtotal USD", "Total CRC", "Total USD"]
+        rows = []
         tc = tu = 0
         for f in facts:
             l.append(f"{f['numero']:<13} {f['fecha'][:13]:<14} {f['cliente'][:22]:<22} {f['moneda']:>4} {f['subtotal']:>12,.2f} USD {f['subtotal_usd']:>8.2f} {f['total']:>12,.2f} USD {f['total_usd']:>8.2f}")
             tc += f["total"]; tu += f["total_usd"]
+            rows.append([
+                f["numero"], f["fecha"], f["cliente"], f["moneda"],
+                f["subtotal"] or 0, f["subtotal_usd"] or 0,
+                f["total"] or 0, f["total_usd"] or 0,
+            ])
         l += ["-"*95, f"Total: {len(facts)} | CRC {tc:,.2f} | USD {tu:,.2f}", "="*95]
         self.text_res.insert(tk.END, "\n".join(l)); self.text_res.config(state=tk.DISABLED)
+        self._set_excel_data(headers, rows, "ventas_periodo", "REPORTE DE VENTAS")
 
     def r_proveedores(self):
         self._limpiar()
@@ -3036,32 +3161,46 @@ class ReportesModulo:
         l = ["="*75, f"           MOVIMIENTOS POR PROVEEDOR/CLIENTE",
              f"           Fecha: {fecha_actual()} | TC: CRC {self.tc}", "="*75,
              f"{'Proveedor/Cliente':<28} {'Tipo':<8} {'Cant.':>8} {'Total CRC':>14} {'Total USD':>12}", "-"*75]
+        headers = ["Proveedor/Cliente", "Tipo", "Cantidad", "Total CRC", "Total USD"]
+        rows = []
         for m in movs:
             l.append(f"{m['proveedor_cliente'][:28]:<28} {m['tipo_movimiento']:<8} {m['ct']:>8.1f} {m['tc']:>14,.2f} USD {m['tu']:>11.2f}")
+            rows.append([m["proveedor_cliente"], m["tipo_movimiento"],
+                         m["ct"], m["tc"], m["tu"]])
         l.append("="*75)
         self.text_res.insert(tk.END, "\n".join(l)); self.text_res.config(state=tk.DISABLED)
+        self._set_excel_data(headers, rows, "mov_proveedores", "MOVIMIENTOS PROVEEDORES")
 
     def r_costos(self):
         self._limpiar()
         from database import obtener_reporte_costos
         reporte = obtener_reporte_costos()
-        
+
         l = ["="*110, "                    ANALISIS DE COSTOS POR PRODUCTO",
              f"                    Fecha: {fecha_actual()} | TC: CRC {self.tc}", "="*110,
              f"{'Codigo':<8} {'Nombre':<20} {'C.Compra':>10} {'C.Promedio':>11} {'C.Ultimo':>10} {'P.Venta':>10} {'Margen%':>8} {'Margen$':>10}",
              "-"*110]
-        
+        headers = ["Codigo", "Nombre", "Precio Compra", "Costo Promedio",
+                   "Costo Ultimo", "Precio Venta", "Margen % CRC", "Margen % USD"]
+        rows = []
+
         for r in reporte:
             l.append(f"{r['codigo']:<8} {r['nombre'][:20]:<20} {r['precio_compra']:>10,.2f} {r['costo_promedio_crc']:>11,.2f} {r['costo_ultimo_crc']:>10,.2f} {r['precio_venta']:>10,.2f} {r['margen_crc']:>7.1f}% {r['margen_usd']:>9.1f}%")
-        
+            rows.append([
+                r["codigo"], r["nombre"], r["precio_compra"],
+                r["costo_promedio_crc"], r["costo_ultimo_crc"],
+                r["precio_venta"], r["margen_crc"], r["margen_usd"],
+            ])
+
         l += ["-"*110, f"Total: {len(reporte)} productos analizados", "="*110]
         l.append("\nleyenda:")
         l.append("  C.Compra   = Precio de compra registrado")
         l.append("  C.Promedio = Costo promedio ponderado de todas las entradas")
         l.append("  C.Ultimo   = Ultimo precio de compra registrado")
         l.append("  Margen%    = ((Venta - Costo) / Costo) * 100")
-        
+
         self.text_res.insert(tk.END, "\n".join(l)); self.text_res.config(state=tk.DISABLED)
+        self._set_excel_data(headers, rows, "analisis_costos", "ANALISIS DE COSTOS")
 
 
 # ═══════════════════════════════════════════════════════════════
