@@ -7,7 +7,7 @@ import shutil
 
 # Base app name
 APP_NAME = "PinoSystem"
-APP_VERSION = "2.5.1"
+APP_VERSION = "2.6.0"
 
 def get_app_data_dir():
     """Obtiene la carpeta de datos de la aplicación (AppData Local)"""
@@ -250,7 +250,8 @@ def load_config():
         "google_drive_url": "",
         "last_update_check": "",
         "currency": "CRC",
-        "theme": "claro"
+        "theme": "claro",
+        "hidden_modules": []
     }
     
     if os.path.exists(config_path):

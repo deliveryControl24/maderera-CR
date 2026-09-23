@@ -25,7 +25,7 @@ from themes import get_theme
 class AppMaderera:
     def __init__(self):
         self.root = tk.Tk()
-        self.root.title("PINO SYSTEM - Sistema de Inventario y Facturacion")
+        self.root.title(f"PINO SYSTEM v{APP_VERSION} - Sistema de Inventario y Facturacion")
         self.tema = get_theme(load_config().get("theme", "claro"))
         self.root.configure(bg=self.tema["root_bg"])
         centrar_ventana(self.root, 1050, 700)
@@ -97,22 +97,47 @@ class AppMaderera:
         archivo.add_separator()
         archivo.add_command(label="Salir", command=self.salir, accelerator="Ctrl+Q")
 
+        try:
+            cfg = load_config()
+            hidden = set(cfg.get("hidden_modules") or [])
+        except Exception:
+            hidden = set()
+
         inventario = tk.Menu(menubar, tearoff=0)
         menubar.add_cascade(label="Inventario", menu=inventario)
-        inventario.add_command(label="Productos / Maderas", command=self.abrir_productos, accelerator="Ctrl+P")
-        inventario.add_command(label="Kardex", command=self.abrir_kardex, accelerator="Ctrl+K")
+        if "productos" not in hidden:
+            inventario.add_command(label="Productos / Maderas", command=self.abrir_productos, accelerator="Ctrl+P")
+        if "kardex" not in hidden:
+            inventario.add_command(label="Kardex", command=self.abrir_kardex, accelerator="Ctrl+K")
+        if "productos" in hidden and "kardex" in hidden:
+            inventario.add_command(label="(oculto en Configuracion)", state=tk.DISABLED)
 
         ventas = tk.Menu(menubar, tearoff=0)
         menubar.add_cascade(label="Ventas", menu=ventas)
-        ventas.add_command(label="Nueva Factura", command=self.abrir_facturacion, accelerator="Ctrl+F")
+        if "facturacion" not in hidden or "pos" not in hidden:
+            if "facturacion" not in hidden:
+                ventas.add_command(label="Nueva Factura", command=self.abrir_facturacion, accelerator="Ctrl+F")
+            if "pos" not in hidden:
+                ventas.add_command(label="Punto de Venta (POS)", command=self.abrir_pos)
+        else:
+            ventas.add_command(label="(oculto en Configuracion)", state=tk.DISABLED)
 
         personas = tk.Menu(menubar, tearoff=0)
         menubar.add_cascade(label="Personas", menu=personas)
-        personas.add_command(label="Clientes", command=self.abrir_clientes)
+        if "clientes" not in hidden:
+            personas.add_command(label="Clientes", command=self.abrir_clientes)
+        else:
+            personas.add_command(label="(oculto en Configuracion)", state=tk.DISABLED)
 
         reportes = tk.Menu(menubar, tearoff=0)
         menubar.add_cascade(label="Reportes", menu=reportes)
-        reportes.add_command(label="Ver Reportes", command=self.abrir_reportes, accelerator="Ctrl+R")
+        if "reportes" not in hidden or "graficos" not in hidden:
+            if "reportes" not in hidden:
+                reportes.add_command(label="Ver Reportes", command=self.abrir_reportes, accelerator="Ctrl+R")
+            if "graficos" not in hidden:
+                reportes.add_command(label="Reportes Graficos", command=self.abrir_reportes_graficos)
+        else:
+            reportes.add_command(label="(oculto en Configuracion)", state=tk.DISABLED)
 
         ayuda = tk.Menu(menubar, tearoff=0)
         menubar.add_cascade(label="Ayuda", menu=ayuda)
@@ -129,6 +154,7 @@ class AppMaderera:
         self.root.bind("<Control-r>", lambda e: self.abrir_reportes())
         self.root.bind("<Control-comma>", lambda e: self.abrir_configuracion())
         self.root.bind("<Control-q>", lambda e: self.salir())
+        self._menu_ocultos = hidden
 
     def crear_widgets_principales(self):
         t = self.tema
@@ -142,7 +168,7 @@ class AppMaderera:
         tk.Label(titulo_frame, text="PINO SYSTEM",
                  font=("Helvetica", 38, "bold"),
                  bg=t["root_bg"], fg=t["title_fg"]).pack()
-        tk.Label(titulo_frame, text="Sistema de Inventario y Facturacion KARDEX",
+        tk.Label(titulo_frame, text=f"Version {APP_VERSION}  |  Sistema de Inventario y Facturacion KARDEX",
                  font=("Helvetica", 13),
                  bg=t["root_bg"], fg=t["sub_fg"]).pack(pady=(2, 0))
 
@@ -167,18 +193,22 @@ class AppMaderera:
         btn_frame.pack(side=tk.LEFT)
 
         botones_data = [
-            ("VENTAS POS\nPunto de Venta", "#FF6F00", self.abrir_pos),
-            ("PRODUCTOS\nMaderas",          "#1565C0", self.abrir_productos),
-            ("KARDEX\nInventario",          "#C62828", self.abrir_kardex),
-            ("FACTURACION\nNueva Venta",    "#00838F", self.abrir_facturacion),
-            ("CLIENTES",                    "#6A1B9A", self.abrir_clientes),
-            ("REPORTES\nInformes",          "#E65100", self.abrir_reportes),
-            ("REPORTES\nGraficos",          "#6A1B9A", self.abrir_reportes_graficos),
-            ("ACTUALIZAR\nSistema",         "#1565C0", self.verificar_actualizaciones),
-            ("CONFIGURACION\nDel Sistema",  "#37474F", self.abrir_configuracion),
+            ("VENTAS POS\nPunto de Venta", "#FF6F00", self.abrir_pos, "pos"),
+            ("PRODUCTOS\nMaderas",          "#1565C0", self.abrir_productos, "productos"),
+            ("KARDEX\nInventario",          "#C62828", self.abrir_kardex, "kardex"),
+            ("FACTURACION\nNueva Venta",    "#00838F", self.abrir_facturacion, "facturacion"),
+            ("CLIENTES",                    "#6A1B9A", self.abrir_clientes, "clientes"),
+            ("REPORTES\nInformes",          "#E65100", self.abrir_reportes, "reportes"),
+            ("REPORTES\nGraficos",          "#6A1B9A", self.abrir_reportes_graficos, "graficos"),
+            ("ACTUALIZAR\nSistema",         "#1565C0", self.verificar_actualizaciones, "actualizar"),
+            ("CONFIGURACION\nDel Sistema",  "#37474F", self.abrir_configuracion, "config"),
         ]
+        hidden = set(load_config().get("hidden_modules") or [])
+        botones_visibles = [b for b in botones_data if b[3] not in hidden or b[3] == "config"]
+        if not botones_visibles:
+            botones_visibles = [b for b in botones_data if b[3] == "config"]
 
-        for i, (texto, borde_color, cmd) in enumerate(botones_data):
+        for i, (texto, borde_color, cmd, _key) in enumerate(botones_visibles):
             contenedor = tk.Frame(btn_frame, bg=borde_color, bd=0, padx=3, pady=3)
             contenedor.grid(row=i // 3, column=i % 3, padx=8, pady=6)
 
@@ -321,7 +351,7 @@ class AppMaderera:
 
         tk.Label(self.status_bar, text=f"PINO SYSTEM v{APP_VERSION} | CRC Colones + USD Dolares  ",
                  bg=t["status_bg"], fg=t["status_accent"],
-                 font=("Helvetica", 9)).pack(side=tk.RIGHT, padx=10)
+                 font=("Helvetica", 9, "bold")).pack(side=tk.RIGHT, padx=10)
 
     def mostrar_inicio(self):
         for widget in self.root.winfo_children():

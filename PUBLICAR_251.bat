@@ -7,7 +7,7 @@ echo ============================================
 echo.
 echo [1/3] Subir codigo + version.json + zip...
 git add config_paths.py app.py main.py version.json updates/latest.zip
-git commit -m "v2.5.1: publicar actualizacion"
+git commit -m "v2.5.1: publicar actualizacion" || echo (ya estaba commiteado - seguimos)
 git push origin main
 if errorlevel 1 (
   echo.
@@ -18,17 +18,22 @@ if errorlevel 1 (
 echo.
 echo [2/3] Build EXE con 2.5.1 (PyInstaller)...
 call build_exe.bat
-echo.
-echo [3/3] Copiar EXE a updates\...
-if exist "dist\PINO_SYSTEM.exe" (
-  copy /Y "dist\PINO_SYSTEM.exe" "updates\PINO_SYSTEM.exe"
-  git add updates/PINO_SYSTEM.exe
-  git commit -m "v2.5.1: EXE actualizado"
-  git push origin main
-  echo.
-  echo LISTO - version.json y EXE 2.5.1 en GitHub
-) else (
-  echo [AVISO] No hay dist\PINO_SYSTEM.exe - suba el EXE despues
+if not exist "dist\PINO_SYSTEM.exe" (
+  echo [ERROR] No se genero dist\PINO_SYSTEM.exe
+  pause
+  exit /b 1
 )
 echo.
+echo [3/3] Copiar EXE a updates\ y subir...
+copy /Y "dist\PINO_SYSTEM.exe" "updates\PINO_SYSTEM.exe"
+git add updates/PINO_SYSTEM.exe
+git commit -m "v2.5.1: EXE actualizado" || echo (EXE ya era igual)
+git push origin main
+if errorlevel 1 (
+  echo [ERROR] Push del EXE fallido.
+  pause
+  exit /b 1
+)
+echo.
+echo LISTO - version.json 2.5.1 y EXE 2.5.1 en GitHub
 pause

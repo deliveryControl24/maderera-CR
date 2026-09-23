@@ -129,17 +129,23 @@ def barra_navegacion(ventana, parent, actual=None):
         if nombre != "inicio":
             abrir_modulo(parent, nombre)
 
-    mods = [
-        ("INICIO", "inicio", "#2E7D32"),
-        ("POS", "pos", "#FF6F00"),
-        ("PROD", "productos", "#1565C0"),
-        ("KARDEX", "kardex", "#C62828"),
-        ("FACTURA", "facturacion", "#00838F"),
-        ("CLIENTES", "clientes", "#6A1B9A"),
-        ("REPORTES", "reportes", "#E65100"),
-        ("GRAFICOS", "graficos", "#7B1FA2"),
-        ("CONFIG", "config", "#546E7A"),
-    ]
+        try:
+            from config_paths import load_config as _lc
+            hidden = set(_lc().get("hidden_modules") or [])
+        except Exception:
+            hidden = set()
+        mods = [
+            ("INICIO", "inicio", "#2E7D32"),
+            ("POS", "pos", "#FF6F00"),
+            ("PROD", "productos", "#1565C0"),
+            ("KARDEX", "kardex", "#C62828"),
+            ("FACTURA", "facturacion", "#00838F"),
+            ("CLIENTES", "clientes", "#6A1B9A"),
+            ("REPORTES", "reportes", "#E65100"),
+            ("GRAFICOS", "graficos", "#7B1FA2"),
+            ("CONFIG", "config", "#546E7A"),
+        ]
+        mods = [m for m in mods if m[1] == "inicio" or m[1] == "config" or m[1] not in hidden]
 
     for texto, nombre, color in mods:
         es_actual = (nombre == actual)
@@ -807,10 +813,10 @@ class ConfiguracionModulo:
             from config_paths import get_version
             ver = get_version()
         except Exception:
-            ver = "2.1.0"
+            ver = "0.0.0"
         tk.Label(header, text=f"v{ver}",
                  bg="#37474F", fg="#A5D6A7",
-                 font=("Helvetica", 10)).pack(side=tk.RIGHT, padx=18)
+                 font=("Helvetica", 10, "bold")).pack(side=tk.RIGHT, padx=18)
 
         # Barra de botones ABAJO primero (para que no quede oculta)
         btn_frame = tk.Frame(self.ventana, bg="#CFD8DC", bd=1, relief=tk.SUNKEN)
@@ -854,6 +860,7 @@ class ConfiguracionModulo:
         self.check_vars = {}
         self.entries = {}
         self._tab_general(notebook, config)
+        self._tab_modulos(notebook, config)
         self._tab_empresa(notebook, config)
         self._tab_factura(notebook, config)
         self._tab_backup(notebook, config)
@@ -930,6 +937,86 @@ class ConfiguracionModulo:
         return errores
 
     # ── TAB GENERAL ──────────────────────────────────────────
+    # ── TAB MODULOS (mostrar/ocultar en el inicio) ───────────
+    def _tab_modulos(self, notebook, config):
+        tab = tk.Frame(notebook, bg="#ECEFF1")
+        notebook.add(tab, text="  Modulos  ")
+        f = self._scroll_tab(tab)
+
+        self._seccion(f, "BOTONES VISIBLES EN LA PANTALLA DE INICIO",
+                      color="#00838F")
+        tk.Label(f,
+                 text="Marque los modulos que SI desea mostrar.\n"
+                      "Los desmarcados se ocultan del inicio y del menu superior.\n"
+                      "CONFIGURACION siempre queda visible para poder volver aqui.",
+                 bg="#ECEFF1", fg="#546E7A", font=("Helvetica", 9),
+                 justify=tk.LEFT, anchor=tk.W).pack(anchor=tk.W, padx=26, pady=(2, 8))
+
+        from config_paths import load_config as _lcfg
+        hidden_actual = set(_lcfg().get("hidden_modules") or [])
+
+        modulos = [
+            ("pos",         "VENTAS POS - Punto de Venta"),
+            ("productos",   "PRODUCTOS - Maderas"),
+            ("kardex",      "KARDEX - Inventario"),
+            ("facturacion", "FACTURACION - Nueva Venta"),
+            ("clientes",    "CLIENTES"),
+            ("reportes",    "REPORTES - Informes"),
+            ("graficos",    "REPORTES - Graficos"),
+            ("actualizar",  "ACTUALIZAR Sistema"),
+            ("config",      "CONFIGURACION Del Sistema (obligatorio)"),
+        ]
+
+        self.modulo_vars = {}
+        for key, label in modulos:
+            if key == "config":
+                var = tk.BooleanVar(value=True)
+                estado = tk.DISABLED
+            else:
+                var = tk.BooleanVar(value=key not in hidden_actual)
+                estado = tk.NORMAL
+            self.modulo_vars[key] = var
+            chk = tk.Checkbutton(
+                f, text=label, variable=var,
+                bg="#ECEFF1", fg="#263238",
+                activebackground="#ECEFF1", font=("Helvetica", 11),
+                anchor=tk.W, state=estado,
+                command=self._marcar_cambio)
+            chk.pack(anchor=tk.W, padx=36, pady=2, fill=tk.X)
+
+        fila_btns = tk.Frame(f, bg="#ECEFF1")
+        fila_btns.pack(anchor=tk.W, padx=26, pady=10)
+        tk.Button(fila_btns, text="TODOS VISIBLES",
+                  bg="#F0F0F0", fg="#212121", font=("Helvetica", 9, "bold"),
+                  command=lambda: self._set_modulos_todos(True),
+                  relief=tk.FLAT).pack(side=tk.LEFT, padx=(0, 6))
+        tk.Button(fila_btns, text="SOLO CONFIG",
+                  bg="#F0F0F0", fg="#212121", font=("Helvetica", 9, "bold"),
+                  command=lambda: self._set_modulos_todos(False),
+                  relief=tk.FLAT).pack(side=tk.LEFT)
+
+        tk.Label(f,
+                 text="Los cambios se aplican al presionar GUARDAR CAMBIOS.",
+                 bg="#ECEFF1", fg="#00695C", font=("Helvetica", 9, "italic"),
+                 anchor=tk.W).pack(anchor=tk.W, padx=26, pady=(6, 0))
+
+    def _set_modulos_todos(self, visible):
+        for key, var in self.modulo_vars.items():
+            if key == "config":
+                var.set(True)
+            else:
+                var.set(bool(visible))
+        self._marcar_cambio()
+
+    def _modulos_ocultos_actuales(self):
+        ocultos = []
+        for key, var in getattr(self, "modulo_vars", {}).items():
+            if key == "config":
+                continue
+            if not var.get():
+                ocultos.append(key)
+        return ocultos
+
     def _tab_general(self, notebook, config):
         tab = tk.Frame(notebook, bg="#ECEFF1")
         notebook.add(tab, text="  General  ")
@@ -1009,11 +1096,12 @@ class ConfiguracionModulo:
 
         tk.Label(f, text="Info del sistema:", bg="#ECEFF1",
                  font=("Helvetica", 10, "bold")).pack(anchor=tk.W, padx=26, pady=(18, 4))
-        from config_paths import get_db_path, get_app_data_dir
+        from config_paths import get_db_path, get_app_data_dir, get_version
         info = (
+            f"Version sistema:  {get_version()}\n"
             f"Base de datos:  {get_db_path()}\n"
             f"Carpeta datos:  {get_app_data_dir()}\n"
-            f"Version:        {config.get('fecha_actualizacion', 'n/a')}"
+            f"Ultima config:  {config.get('fecha_actualizacion', 'n/a')}"
         )
         tk.Label(f, text=info, bg="#ECEFF1", fg="#455A64",
                  font=("Helvetica", 9), justify=tk.LEFT).pack(anchor=tk.W, padx=26)
@@ -1864,6 +1952,11 @@ class ConfiguracionModulo:
         cfg_app["company_name"] = empresa
         if hasattr(self, "var_tema"):
             cfg_app["theme"] = self.var_tema.get()
+        if hasattr(self, "modulo_vars"):
+            ocultos = self._modulos_ocultos_actuales()
+            if "config" in ocultos:
+                ocultos = [k for k in ocultos if k != "config"]
+            cfg_app["hidden_modules"] = ocultos
         save_config(cfg_app)
 
         if update_url:
@@ -1888,10 +1981,15 @@ class ConfiguracionModulo:
         if hasattr(self, "var_tema"):
             from themes import get_theme
             tema_txt = f"\nTema: {get_theme(self.var_tema.get())['label']}"
+        try:
+            ocultos_txt = ", ".join(self._modulos_ocultos_actuales()) or "ninguno"
+        except Exception:
+            ocultos_txt = "n/d"
         messagebox.showinfo(
             "Exito",
             "Configuracion guardada correctamente.\n"
-            f"TC: CRC {tc:,.2f}/USD | IVA: {iva:g}% | Moneda: {moneda}{tema_txt}")
+            f"TC: CRC {tc:,.2f}/USD | IVA: {iva:g}% | Moneda: {moneda}{tema_txt}\n"
+            f"Modulos ocultos en inicio: {ocultos_txt}")
         if self.callback:
             self.callback()
         self.ventana.destroy()

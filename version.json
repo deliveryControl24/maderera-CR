@@ -1,11 +1,11 @@
 {
-  "version": "2.5.1",
+  "version": "2.6.0",
   "download_url": "updates/PINO_SYSTEM.exe",
   "download_url_win": "updates/PINO_SYSTEM.exe",
   "download_url_mac": "updates/latest.zip",
   "download_url_linux": "updates/latest.zip",
   "download_url_zip": "updates/latest.zip",
-  "changelog": "PINO SYSTEM v2.5.1\n- Mejoras del actualizador side-by-side\n- Paquete INICIAR.bat + versions/\n- Excel en reportes e inventario\n- Zip liviano para Mac/portable",
+  "changelog": "PINO SYSTEM v2.6.0\n- Version visible en portada, barra inferior, ventana y Config\n- Configuracion > Modulos: mostrar/ocultar botones del inicio\n- Filtra menus y barra de navegacion",
   "checksum": "",
   "updated_at": "2026-09-23",
   "min_size": 1000,
