@@ -6,6 +6,8 @@ cd /d "%~dp0"
 echo ============================================
 echo   PINO SYSTEM - Generar EXE (Windows)
 echo ============================================.
+echo NOTA: si esta en carpeta compartida (C:\Mac\Home),
+echo mejor use PUBLICAR_261.bat (compila en LOCAL).
 
 where python >nul 2>nul
 if errorlevel 1 (

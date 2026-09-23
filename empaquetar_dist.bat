@@ -3,9 +3,10 @@ chcp 65001 >nul
 setlocal
 cd /d "%~dp0"
 
-set "VER=2.5.0"
+for /f "usebackq delims=" %%V in (`python -c "from config_paths import APP_VERSION; print(APP_VERSION)"`) do set "VER=%%V"
+if "%VER%"=="" set "VER=2.6.1"
 echo ============================================
-echo  PINO SYSTEM - Empaquetar dist\
+echo  PINO SYSTEM - Empaquetar dist\  v%VER%
 echo ============================================.
 
 if not exist "dist\PINO_SYSTEM.exe" (

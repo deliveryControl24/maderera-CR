@@ -1,41 +1,108 @@
 @echo off
 chcp 65001 >nul
+setlocal
 cd /d "%~dp0"
+
 echo ============================================
-echo  PUBLICAR v2.6.1 - actualizacion en 1 clic
+echo  PUBLICAR v2.6.1 - EXE nuevo (1 clic)
 echo ============================================
 echo.
-echo [1/3] Subir codigo + version.json + zip...
-git add config_paths.py app.py main.py modulos.py updater.py version.json updates/latest.zip PUBLICAR_261.bat PUBLICAR_260.bat PUBLICAR_251.bat AGENTS.md COMANDOS_GITHUB.txt empacotar_update.py
-git commit -m "v2.6.1: actualizacion en un clic para el usuario final" || echo (ya estaba commiteado - seguimos)
+echo IMPORTANTE: el build NO se hace en la carpeta
+echo compartida (C:\Mac\Home). Se copia a local y
+echo compila ahi para que el EXE salga bien.
+echo.
+
+rem ---------- 1) Push codigo + version.json + zip ----------
+echo [1/4] Subir codigo + version.json + zip...
+git add -A
+git commit -m "v2.6.1: actualizacion en un clic para el usuario final" || echo (ya estaba commiteado)
 git push origin main
 if errorlevel 1 (
-  echo.
-  echo [ERROR] No se pudo push. Revise cuenta/PAT.
+  echo [ERROR] Push de codigo fallo. Revise PAT/cuenta.
   pause
   exit /b 1
 )
-echo.
-echo [2/3] Build EXE con 2.6.1 (PyInstaller)...
-call build_exe.bat
+
+rem ---------- 2) Build FUERA del share ----------
+set "BUILDROOT=%LOCALAPPDATA%\PinoBuild"
+echo [2/4] Compilar en %BUILDROOT% ...
+if exist "%BUILDROOT%" rmdir /S /Q "%BUILDROOT%"
+mkdir "%BUILDROOT%"
+
+copy /Y "*.py" "%BUILDROOT%\" >nul
+copy /Y "requirements-build.txt" "%BUILDROOT%\" >nul
+if exist "pino.ico" copy /Y "pino.ico" "%BUILDROOT%\" >nul
+if exist "pino_icon.png" copy /Y "pino_icon.png" "%BUILDROOT%\" >nul
+
+pushd "%BUILDROOT%"
+python -m pip install --upgrade pyinstaller pillow openpyxl --quiet
+if errorlevel 1 (
+  echo [ERROR] No se pudo instalar PyInstaller.
+  popd
+  pause
+  exit /b 1
+)
+
+set "ICON_ARG=--icon=pino.ico"
+if not exist "pino.ico" set "ICON_ARG="
+
+python -m PyInstaller --noconfirm --onefile --windowed --name PINO_SYSTEM %ICON_ARG% --add-data "pino.ico;." --add-data "pino_icon.png;." --hidden-import openpyxl --hidden-import openpyxl.cell._writer --collect-all openpyxl app.py
+if errorlevel 1 (
+  echo [ERROR] PyInstaller fallo.
+  popd
+  pause
+  exit /b 1
+)
 if not exist "dist\PINO_SYSTEM.exe" (
   echo [ERROR] No se genero dist\PINO_SYSTEM.exe
+  popd
   pause
   exit /b 1
 )
-echo.
-echo [3/3] Copiar EXE a updates\ y subir...
-copy /Y "dist\PINO_SYSTEM.exe" "updates\PINO_SYSTEM.exe"
-git add updates/PINO_SYSTEM.exe
-git commit -m "v2.6.1: EXE actualizado" || echo (EXE ya era igual)
+popd
+
+rem ---------- 3) Copiar EXE al repo ----------
+echo [3/4] Copiar EXE a updates\ ...
+copy /Y "%BUILDROOT%\dist\PINO_SYSTEM.exe" "updates\PINO_SYSTEM.exe"
+if not exist "updates\PINO_SYSTEM.exe" (
+  echo [ERROR] No se copio el EXE
+  pause
+  exit /b 1
+)
+
+rem Empaquetar carpeta limpia para clientes
+set "VER=2.6.1"
+if not exist "paquete_pino\versions\%VER%" mkdir "paquete_pino\versions\%VER%"
+copy /Y "updates\PINO_SYSTEM.exe" "paquete_pino\versions\%VER%\PINO_SYSTEM.exe" >nul
+copy /Y "updates\PINO_SYSTEM.exe" "paquete_pino\PINO_SYSTEM.exe" >nul
+> "paquete_pino\current.txt" echo %VER%
+if exist "version.json" copy /Y "version.json" "paquete_pino\version.json" >nul
+if exist "version.json" copy /Y "version.json" "paquete_pino\updates\version.json" >nul
+if exist "updates\latest.zip" copy /Y "updates\latest.zip" "paquete_pino\updates\latest.zip" >nul
+
+rem ---------- 4) Push EXE ----------
+echo [4/4] Subir EXE a GitHub...
+git add updates/PINO_SYSTEM.exe version.json updates/latest.zip
+git commit -m "v2.6.1: EXE real con codigo nuevo (dialogo 1 clic)" || echo (EXE ya era igual)
 git push origin main
 if errorlevel 1 (
-  echo [ERROR] Push del EXE fallido.
+  echo [ERROR] Push del EXE fallo.
   pause
   exit /b 1
 )
+
 echo.
-echo LISTO - version.json 2.6.1 y EXE 2.6.1 en GitHub
+echo ============================================
+echo  LISTO
+echo  - EXE 2.6.1 con dialogo SI, ACTUALIZAR
+echo  - version.json 2.6.1 en GitHub
+echo  - paquete_pino\ actualizado
+echo.
+echo En clientes: cerrar PINO, abrir INICIAR.bat
+echo o doble clic ACTUALIZAR - debe decir 2.6.1
+echo y dialogo nuevo (SI, ACTUALIZAR).
+echo ============================================
 echo Verificar:
 echo https://raw.githubusercontent.com/deliveryControl24/maderera-CR/main/version.json
 pause
+endlocal
