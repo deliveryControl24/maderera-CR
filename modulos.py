@@ -1456,14 +1456,36 @@ class ConfiguracionModulo:
 
         from config_paths import get_db_path, get_datos_dir
         import shutil
+        import sqlite3
         from datetime import datetime as _dt
 
+        db = get_db_path()
+        resp_dir = os.path.join(get_datos_dir(), "respaldos")
+
+        def _sqlite_backup(destino):
+            """Copia consistente de la BD (segura con WAL)."""
+            os.makedirs(os.path.dirname(destino), exist_ok=True)
+            origen = sqlite3.connect(db, timeout=15)
+            try:
+                dest = sqlite3.connect(destino, timeout=15)
+                try:
+                    origen.backup(dest)
+                finally:
+                    dest.close()
+            finally:
+                origen.close()
+
+        def _cerrar_conexiones():
+            try:
+                from database import close_connection
+                close_connection()
+            except Exception:
+                pass
+
         self._seccion(f, "BASE DE DATOS")
-        tk.Label(f, text=f"Ubicacion:\n{get_db_path()}",
+        tk.Label(f, text=f"Ubicacion:\n{db}",
                  bg="#ECEFF1", fg="#455A64", font=("Helvetica", 10),
                  justify=tk.LEFT).pack(anchor=tk.W, padx=26)
-
-        db = get_db_path()
         if os.path.exists(db):
             mb = os.path.getsize(db) / (1024 * 1024)
             tk.Label(f, text=f"Tamano actual: {mb:.2f} MB",
@@ -1473,73 +1495,148 @@ class ConfiguracionModulo:
         acciones = tk.Frame(f, bg="#ECEFF1")
         acciones.pack(fill=tk.X, padx=24, pady=8)
 
-        def copiar_backup(auto=False):
-            if auto:
-                destino = os.path.join(get_datos_dir(), "respaldos",
-                                       f"backup_auto_{_dt.now().strftime('%Y%m%d_%H%M%S')}.db")
-                os.makedirs(os.path.dirname(destino), exist_ok=True)
-            else:
-                destino = filedialog.asksaveasfilename(
-                    defaultextension=".db",
-                    filetypes=[("SQLite DB", "*.db")],
-                    initialfile=f"backup_pino_system_{_dt.now().strftime('%Y%m%d')}.db")
-            if not destino:
+        def crear_backup():
+            if not os.path.exists(db):
+                messagebox.showerror("Backup", "No existe la base de datos.")
                 return
+            destino = os.path.join(
+                resp_dir, f"backup_{_dt.now().strftime('%Y%m%d_%H%M%S')}.db")
             try:
-                shutil.copy2(db, destino)
-                if auto:
-                    messagebox.showinfo("Backup automatico",
-                                        f"Respaldo creado:\n{destino}")
-                else:
-                    messagebox.showinfo("Backup", "Backup guardado correctamente")
+                _sqlite_backup(destino)
                 self._listar_backups()
+                messagebox.showinfo(
+                    "Backup",
+                    f"Respaldo guardado en la lista:\n{os.path.basename(destino)}")
             except Exception as e:
                 messagebox.showerror("Backup", f"Error:\n{e}")
 
-        def restaurar_backup():
+        def guardar_copia_externa():
+            if not os.path.exists(db):
+                messagebox.showerror("Backup", "No existe la base de datos.")
+                return
+            destino = filedialog.asksaveasfilename(
+                defaultextension=".db",
+                filetypes=[("SQLite DB", "*.db")],
+                initialfile=f"backup_pino_system_{_dt.now().strftime('%Y%m%d')}.db")
+            if not destino:
+                return
+            try:
+                _sqlite_backup(destino)
+                messagebox.showinfo("Backup", "Copia guardada en su carpeta.")
+            except Exception as e:
+                messagebox.showerror("Backup", f"Error:\n{e}")
+
+        def _ruta_seleccionada():
+            sel = self.lst_backups.curselection()
+            if not sel:
+                return None
+            texto = self.lst_backups.get(sel[0])
+            nombre = texto.split("  (")[0].strip()
+            if nombre.startswith("("):
+                return None
+            return os.path.join(resp_dir, nombre)
+
+        def cargar_desde_lista():
+            origen = _ruta_seleccionada()
+            if not origen:
+                messagebox.showwarning("Cargar", "Seleccione un respaldo de la lista.")
+                return
+            if not os.path.exists(origen):
+                messagebox.showerror("Cargar", "Ese archivo ya no existe.")
+                self._listar_backups()
+                return
+            if not messagebox.askyesno(
+                    "Cargar respaldo",
+                    "Esto REEMPLAZARA la base de datos actual.\n"
+                    "Se creara un backup antes de cargar.\n\nContinuar?"):
+                return
+            try:
+                previo = os.path.join(
+                    resp_dir, f"backup_previo_{_dt.now().strftime('%Y%m%d_%H%M%S')}.db")
+                if os.path.exists(db):
+                    _sqlite_backup(previo)
+                _cerrar_conexiones()
+                for suf in ("", "-wal", "-shm"):
+                    p = db + suf
+                    if os.path.exists(p):
+                        os.remove(p)
+                shutil.copy2(origen, db)
+                self._listar_backups()
+                messagebox.showinfo(
+                    "Listo",
+                    "Base de datos cargada.\nCierre y abra el sistema para ver los datos.")
+                if self.callback:
+                    self.callback()
+            except Exception as e:
+                messagebox.showerror("Error", f"No se pudo cargar:\n{e}")
+
+        def cargar_archivo_externo():
             origen = filedialog.askopenfilename(
                 filetypes=[("SQLite DB", "*.db")])
             if not origen:
                 return
             if not messagebox.askyesno(
-                    "Restaurar",
+                    "Cargar archivo",
                     "Esto REEMPLAZARA la base de datos actual.\n"
-                    "Se creara un backup antes de restaurar.\n\nContinuar?"):
+                    "Se creara un backup antes de cargar.\n\nContinuar?"):
                 return
             try:
-                copiar_backup(auto=True)
+                previo = os.path.join(
+                    resp_dir, f"backup_previo_{_dt.now().strftime('%Y%m%d_%H%M%S')}.db")
+                if os.path.exists(db):
+                    _sqlite_backup(previo)
+                _cerrar_conexiones()
+                for suf in ("", "-wal", "-shm"):
+                    p = db + suf
+                    if os.path.exists(p):
+                        os.remove(p)
                 shutil.copy2(origen, db)
-                messagebox.showinfo("Restaurado",
-                                    "Base restaurada. Reinicie el sistema.")
+                messagebox.showinfo(
+                    "Listo",
+                    "Base de datos cargada.\nCierre y abra el sistema para ver los datos.")
                 if self.callback:
                     self.callback()
             except Exception as e:
-                messagebox.showerror("Error", f"No se pudo restaurar:\n{e}")
+                messagebox.showerror("Error", f"No se pudo cargar:\n{e}")
+
+        def borrar_seleccionado():
+            origen = _ruta_seleccionada()
+            if not origen:
+                messagebox.showwarning("Borrar", "Seleccione un respaldo de la lista.")
+                return
+            if not messagebox.askyesno("Borrar", f"Eliminar {os.path.basename(origen)}?"):
+                return
+            try:
+                os.remove(origen)
+                self._listar_backups()
+            except Exception as e:
+                messagebox.showerror("Error", str(e))
 
         def abrir_carpeta():
             import subprocess
-            carpeta = get_datos_dir()
+            os.makedirs(resp_dir, exist_ok=True)
             if sys.platform == "darwin":
-                subprocess.Popen(["open", carpeta])
+                subprocess.Popen(["open", resp_dir])
             elif sys.platform.startswith("win"):
-                os.startfile(carpeta)
+                os.startfile(resp_dir)
             else:
-                subprocess.Popen(["xdg-open", carpeta])
+                subprocess.Popen(["xdg-open", resp_dir])
 
         for txt, color, cmd in (
-            ("CREAR BACKUP", "#1565C0", lambda: copiar_backup(False)),
-            ("RESTAURAR BACKUP", "#E64A19", restaurar_backup),
-            ("ABRIR CARPETA", "#00695C", abrir_carpeta),
+            ("CREAR BACKUP", "#1565C0", crear_backup),
+            ("CARGAR SELECCIONADO", "#E64A19", cargar_desde_lista),
+            ("CARGAR ARCHIVO", "#6A1B9A", cargar_archivo_externo),
+            ("GUARDAR COPIA", "#00695C", guardar_copia_externa),
+            ("BORRAR", "#B71C1C", borrar_seleccionado),
+            ("ABRIR CARPETA", "#37474F", abrir_carpeta),
         ):
             c = tk.Frame(acciones, bg=color, padx=2, pady=2)
-            c.pack(side=tk.LEFT, padx=5)
+            c.pack(side=tk.LEFT, padx=4, pady=3)
             tk.Button(c, text=txt, bg="#F0F0F0", fg="#212121",
-                      font=("Helvetica", 9, "bold"), width=17,
+                      font=("Helvetica", 8, "bold"),
                       command=cmd, relief=tk.FLAT).pack()
 
-        # Listar respaldos
-        self._seccion(f, "RESPALDOS AUTOMATICOS EN CARPETA")
-        resp_dir = os.path.join(get_datos_dir(), "respaldos")
+        self._seccion(f, "RESPALDOS EN CARPETA (seleccione y CARGAR)")
         self.lst_backups = tk.Listbox(f, height=8, font=("Helvetica", 9))
         self.lst_backups.pack(fill=tk.X, padx=26, pady=4)
         self._listar_backups()
