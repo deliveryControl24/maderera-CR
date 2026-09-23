@@ -33,5 +33,5 @@ https://raw.githubusercontent.com/deliveryControl24/maderera-CR/main/version.jso
 - Compilar: `python3.11 -m py_compile app.py main.py modulos.py config_paths.py`
 - No emojis en Tkinter (crash macOS)
 - Push desde Mac falla 403 -> push desde Windows con PAT `deliveryControl24`
-- Build EXE: solo en Windows local (`PUBLICAR.bat`); PyInstaller no sirve en el share de Parallels ni en Mac
+- Build EXE: solo en Windows local (`build_exe.bat`); PyInstaller no sirve en el share de Parallels ni en Mac
 - `ACTUALIZADOR.exe` es para el **cliente** (baja updates). `PUBLICAR.bat` es para **publicar** en GitHub — sin publicar, el actualizador no tiene nada nuevo.
