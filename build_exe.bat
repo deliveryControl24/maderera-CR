@@ -47,7 +47,7 @@ if exist "dist\PINO_SYSTEM.exe" (
   echo   EXE listo:
   echo   %CD%\dist\PINO_SYSTEM.exe
   echo ============================================
-  explorer dist
+  call empaquetar_dist.bat
 ) else (
   echo [ERROR] No se genero el EXE. Revise los mensajes de error.
 )
