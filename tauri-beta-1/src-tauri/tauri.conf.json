@@ -1,0 +1,58 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "PINO SYSTEM",
+  "version": "1.0.0-beta.1",
+  "identifier": "cr.maderera.pinosystem",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:5173",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "PINO SYSTEM - TAURI BETA 1",
+        "width": 1180,
+        "height": 760,
+        "minWidth": 900,
+        "minHeight": 600,
+        "resizable": true,
+        "fullscreen": false
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["app", "dmg", "nsis", "msi", "deb", "appimage"],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "category": "Productivity",
+    "shortDescription": "Inventario y facturacion KARDEX",
+    "longDescription": "PINO SYSTEM Tauri Beta 1 - Sistema de inventario y facturacion con moneda dual CRC/USD."
+  },
+  "plugins": {
+    "sql": {
+      "preload": ["sqlite:datos.db"],
+      "scope": {
+        "allow": ["SELECT", "INSERT", "UPDATE", "DELETE", "CREATE TABLE"],
+        "deny": []
+      }
+    },
+    "updater": {
+      "active": true,
+      "endpoints": [
+        "https://raw.githubusercontent.com/deliveryControl24/maderera-CR/main/tauri-beta-1/latest.json"
+      ],
+      "pubkey": "REPLACE_WITH_TAURI_SIGN_PUBLIC_KEY"
+    }
+  }
+}

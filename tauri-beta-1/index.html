@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PINO SYSTEM - TAURI BETA 1</title>
+  <link rel="stylesheet" href="/css/styles.css" />
+</head>
+<body>
+  <div id="app">
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark">P</span>
+        <div>
+          <strong>PINO SYSTEM</strong>
+          <small>TAURI BETA 1 · Inventario y Facturacion KARDEX</small>
+        </div>
+      </div>
+      <div class="tc-banner" id="tcBanner">TC 520.00</div>
+      <div class="top-actions">
+        <span class="pill" id="runtimePill">Tauri / Web</span>
+        <span class="pill version" id="versionPill">1.0.0-beta.1</span>
+      </div>
+    </header>
+
+    <nav class="side-nav" id="sideNav">
+      <button class="nav-btn active" data-view="home">Inicio</button>
+      <button class="nav-btn" data-view="pos">POS</button>
+      <button class="nav-btn" data-view="productos">Productos</button>
+      <button class="nav-btn" data-view="kardex">Kardex</button>
+      <button class="nav-btn" data-view="facturacion">Facturas</button>
+      <button class="nav-btn" data-view="clientes">Clientes</button>
+      <button class="nav-btn" data-view="proveedores">Proveedores</button>
+      <button class="nav-btn" data-view="contabilidad">Contabilidad</button>
+      <button class="nav-btn" data-view="pedidos">Pedidos</button>
+      <button class="nav-btn" data-view="devoluciones">Devoluciones</button>
+      <button class="nav-btn" data-view="series">Series</button>
+      <button class="nav-btn" data-view="reportes">Reportes</button>
+      <button class="nav-btn" data-view="graficos">Graficos</button>
+      <button class="nav-btn" data-view="config">Config</button>
+    </nav>
+
+    <main class="content">
+      <!-- HOME -->
+      <section id="view-home" class="view active">
+        <div class="alert low-stock hidden" id="lowStockAlert">
+          <strong>Stock bajo / critico</strong>
+          <ul id="lowStockList"></ul>
+          <button class="btn" id="lowStockClose">Entendido</button>
+        </div>
+
+        <div class="hero">
+          <div>
+            <h1>PINO SYSTEM</h1>
+            <p class="sub">Version 1.0.0-beta.1 · Moneda dual CRC / USD · KARDEX</p>
+          </div>
+          <div class="tc-card">
+            <span>Tipo de cambio</span>
+            <strong id="tcHome">520.00</strong>
+          </div>
+        </div>
+
+        <div class="tiles" id="homeTiles">
+          <button class="tile t-pos" data-view="pos">VENTAS POS<br /><small>Punto de Venta</small></button>
+          <button class="tile t-prod" data-view="productos">PRODUCTOS<br /><small>Maderas</small></button>
+          <button class="tile t-kardex" data-view="kardex">KARDEX<br /><small>Inventario</small></button>
+          <button class="tile t-fac" data-view="facturacion">FACTURACION<br /><small>Nueva Venta</small></button>
+          <button class="tile t-cli" data-view="clientes">CLIENTES<br /><small>Directorio</small></button>
+          <button class="tile t-prov" data-view="proveedores">PROVEEDORES<br /><small>Compras</small></button>
+          <button class="tile t-cont" data-view="contabilidad">CONTABILIDAD<br /><small>Ingresos / Gastos</small></button>
+          <button class="tile t-ped" data-view="pedidos">PEDIDOS<br /><small>Pendientes</small></button>
+          <button class="tile t-dev" data-view="devoluciones">DEVOLUCIONES<br /><small>Clientes</small></button>
+          <button class="tile t-ser" data-view="series">SERIES / LOTES<br /><small>Trazabilidad</small></button>
+          <button class="tile t-rep" data-view="reportes">REPORTES<br /><small>Informes</small></button>
+          <button class="tile t-graf" data-view="graficos">GRAFICOS<br /><small>Analitica</small></button>
+          <button class="tile t-cfg" data-view="config">CONFIGURACION<br /><small>Del Sistema</small></button>
+        </div>
+
+        <div class="kpis" id="kpis"></div>
+        <div class="panel">
+          <div class="panel-head">RESUMEN</div>
+          <div class="panel-body summary-grid" id="summaryGrid"></div>
+        </div>
+      </section>
+
+      <!-- POS -->
+      <section id="view-pos" class="view">
+        <div class="panel">
+          <div class="panel-head">VENTAS POS - Punto de Venta</div>
+          <div class="panel-body">
+            <div class="row">
+              <input id="posSearch" class="input grow" placeholder="Buscar producto por codigo o nombre..." />
+              <select id="posMoneda" class="input">
+                <option value="CRC">CRC (colones)</option>
+                <option value="USD">USD (dolares)</option>
+              </select>
+              <button id="posAddBtn" class="btn">Agregar</button>
+            </div>
+            <div class="table-wrap">
+              <table id="posTable">
+                <thead>
+                  <tr><th>Codigo</th><th>Nombre</th><th>P. CRC</th><th>P. USD</th><th>Stock</th><th></th></tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+            <div class="split">
+              <div class="table-wrap">
+                <table id="cartTable">
+                  <thead>
+                    <tr><th>Producto</th><th>Cant</th><th>Precio</th><th>Subtotal</th><th></th></tr>
+                  </thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+              <div class="totals card">
+                <div><span>Subtotal</span><strong id="posSubtotal">0.00</strong></div>
+                <div><span>IVA</span><strong id="posIva">0.00</strong></div>
+                <div class="total"><span>TOTAL</span><strong id="posTotal">0.00</strong></div>
+                <div class="row">
+                  <button id="posClear" class="btn ghost">Vaciar</button>
+                  <button id="posCotizar" class="btn">Cotizar</button>
+                  <button id="posCobrar" class="btn primary grow">COBRAR</button>
+                </div>
+                <p class="hint" id="posHint">Seleccione moneda y agregue productos.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- PRODUCTOS -->
+      <section id="view-productos" class="view">
+        <div class="panel">
+          <div class="panel-head">PRODUCTOS / MADERAS</div>
+          <div class="panel-body">
+            <form id="prodForm" class="form-grid">
+              <label>Codigo <input name="codigo" class="input" required /></label>
+              <label>Nombre <input name="nombre" class="input" required /></label>
+              <label>Categoria <select name="categoria_id" class="input" id="prodCategoria"></select></label>
+              <label>Unidad
+                <select name="unidad_medida" class="input">
+                  <option>pieza</option><option>m2</option><option>ml</option>
+                  <option>kg</option><option>rollizo</option><option>tablon</option>
+                  <option>paquete</option>
+                </select>
+              </label>
+              <label>P. compra CRC <input name="precio_compra" class="input" type="number" step="0.01" value="0" /></label>
+              <label>P. venta CRC <input name="precio_venta" class="input" type="number" step="0.01" value="0" /></label>
+              <label>P. compra USD <input name="precio_compra_usd" class="input" type="number" step="0.01" value="0" /></label>
+              <label>P. venta USD <input name="precio_venta_usd" class="input" type="number" step="0.01" value="0" /></label>
+              <label>Stock minimo <input name="stock_minimo" class="input" type="number" step="0.01" value="0" /></label>
+              <label class="span-2">Descripcion <input name="descripcion" class="input" /></label>
+              <div class="row span-2">
+                <input type="hidden" name="id" />
+                <button type="submit" class="btn primary">Guardar</button>
+                <button type="button" id="prodReset" class="btn ghost">Nuevo</button>
+                <button type="button" id="prodDelete" class="btn danger">Eliminar</button>
+                <button type="button" id="prodExport" class="btn">Exportar CSV</button>
+              </div>
+            </form>
+            <div class="row">
+              <input id="prodSearch" class="input grow" placeholder="Filtrar productos..." />
+            </div>
+            <div class="table-wrap">
+              <table id="prodTable">
+                <thead>
+                  <tr>
+                    <th>Codigo</th><th>Nombre</th><th>Categoria</th>
+                    <th>Unidad</th><th>P. CRC</th><th>P. USD</th><th>Stock</th><th>Min</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- KARDEX -->
+      <section id="view-kardex" class="view">
+        <div class="panel">
+          <div class="panel-head">KARDEX - Movimientos</div>
+          <div class="panel-body">
+            <form id="kardexForm" class="form-grid">
+              <label>Producto <select name="producto_id" class="input" id="kardexProducto" required></select></label>
+              <label>Tipo
+                <select name="tipo_movimiento" class="input">
+                  <option>ENTRADA</option><option>SALIDA</option>
+                </select>
+              </label>
+              <label>Cantidad <input name="cantidad" class="input" type="number" step="0.01" min="0.01" required /></label>
+              <label>P. Unit CRC <input name="precio_unitario" class="input" type="number" step="0.01" value="0" /></label>
+              <label>P. Unit USD <input name="precio_unitario_usd" class="input" type="number" step="0.01" value="0" /></label>
+              <label>Documento <input name="documento_ref" class="input" placeholder="FAC-000001 / OC-12" /></label>
+              <label>Proveedor / Cliente <input name="proveedor_cliente" class="input" /></label>
+              <label class="span-2">Descripcion <input name="descripcion" class="input" /></label>
+              <div class="span-2"><button type="submit" class="btn primary">Registrar movimiento</button></div>
+            </form>
+            <div class="row">
+              <select id="kardexFilter" class="input grow"><option value="">Todos los productos</option></select>
+              <button class="btn" id="kardexExport">Exportar CSV</button>
+            </div>
+            <div class="table-wrap">
+              <table id="kardexTable">
+                <thead>
+                  <tr>
+                    <th>Fecha</th><th>Tipo</th><th>Producto</th><th>Cant</th>
+                    <th>P.U CRC</th><th>Total CRC</th><th>Saldo</th><th>Ref</th><th>Nota</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- FACTURACION -->
+      <section id="view-facturacion" class="view">
+        <div class="panel">
+          <div class="panel-head">FACTURACION</div>
+          <div class="panel-body">
+            <div class="row">
+              <label class="grow">Cliente <select id="facCliente" class="input"></select></label>
+              <label>Moneda
+                <select id="facMoneda" class="input"><option>CRC</option><option>USD</option></select>
+              </label>
+            </div>
+            <div class="row">
+              <select id="facProducto" class="input grow"></select>
+              <input id="facCant" class="input" type="number" min="1" step="1" value="1" style="width:100px" />
+              <button id="facAdd" class="btn">Agregar linea</button>
+            </div>
+            <div class="table-wrap">
+              <table id="facTable">
+                <thead>
+                  <tr><th>Producto</th><th>Cant</th><th>Precio</th><th>Total</th><th></th></tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+            <div class="row totals-inline">
+              <span>Subtotal: <strong id="facSubtotal">0.00</strong></span>
+              <span>IVA: <strong id="facIva">0.00</strong></span>
+              <span>TOTAL: <strong id="facTotal">0.00</strong></span>
+              <button id="facSave" class="btn primary">GUARDAR FACTURA</button>
+              <button id="facExport" class="btn">Exportar CSV</button>
+            </div>
+            <div class="table-wrap mt">
+              <table id="facListTable">
+                <thead>
+                  <tr><th>Numero</th><th>Fecha</th><th>Cliente</th><th>Mon</th><th>Total</th><th>Estado</th><th></th></tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- CLIENTES -->
+      <section id="view-clientes" class="view">
+        <div class="panel">
+          <div class="panel-head">CLIENTES</div>
+          <div class="panel-body">
+            <form id="cliForm" class="form-grid">
+              <label>NIT <input name="nit" class="input" /></label>
+              <label>Nombre <input name="nombre" class="input" required /></label>
+              <label>Direccion <input name="direccion" class="input" /></label>
+              <label>Telefono <input name="telefono" class="input" /></label>
+              <label>Email <input name="email" class="input" /></label>
+              <div class="row span-2">
+                <input type="hidden" name="id" />
+                <button type="submit" class="btn primary">Guardar</button>
+                <button type="button" id="cliReset" class="btn ghost">Nuevo</button>
+                <button type="button" id="cliDelete" class="btn danger">Eliminar</button>
+                <button type="button" id="cliExport" class="btn">Exportar CSV</button>
+              </div>
+            </form>
+            <div class="table-wrap">
+              <table id="cliTable">
+                <thead>
+                  <tr><th>NIT</th><th>Nombre</th><th>Direccion</th><th>Telefono</th><th>Email</th></tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- PROVEEDORES -->
+      <section id="view-proveedores" class="view">
+        <div class="panel">
+          <div class="panel-head">PROVEEDORES</div>
+          <div class="panel-body">
+            <form id="provForm" class="form-grid">
+              <label>NIT <input name="nit" class="input" /></label>
+              <label>Nombre <input name="nombre" class="input" required /></label>
+              <label>Direccion <input name="direccion" class="input" /></label>
+              <label>Telefono <input name="telefono" class="input" /></label>
+              <label>Email <input name="email" class="input" /></label>
+              <label>Contacto <input name="contacto" class="input" /></label>
+              <div class="row span-2">
+                <input type="hidden" name="id" />
+                <button type="submit" class="btn primary">Guardar</button>
+                <button type="button" id="provReset" class="btn ghost">Nuevo</button>
+                <button type="button" id="provDelete" class="btn danger">Eliminar</button>
+              </div>
+            </form>
+            <div class="table-wrap">
+              <table id="provTable">
+                <thead>
+                  <tr><th>NIT</th><th>Nombre</th><th>Direccion</th><th>Tel</th><th>Email</th><th>Contacto</th></tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- CONTABILIDAD -->
+      <section id="view-contabilidad" class="view">
+        <div class="panel">
+          <div class="panel-head">CONTABILIDAD - INGRESOS Y GASTOS</div>
+          <div class="panel-body">
+            <form id="contForm" class="form-grid">
+              <label>Tipo
+                <select name="tipo" class="input"><option>GASTO</option><option>INGRESO</option></select>
+              </label>
+              <label>Categoria
+                <select name="categoria" class="input">
+                  <option>Compra Materia Prima</option><option>Mano de Obra</option>
+                  <option>Transporte</option><option>Alquiler</option>
+                  <option>Servicios Publicos</option><option>Impuestos</option>
+                  <option>Mantenimiento</option><option>Equipo</option>
+                  <option>Otros Gastos</option><option>Venta Productos</option>
+                  <option>Cobro Clientes</option><option>Otros Ingresos</option>
+                </select>
+              </label>
+              <label>Monto CRC <input name="monto_crc" class="input" type="number" step="0.01" value="0" /></label>
+              <label>Monto USD <input name="monto_usd" class="input" type="number" step="0.01" value="0" /></label>
+              <label class="span-2">Descripcion <input name="descripcion" class="input" /></label>
+              <label>Doc.Ref <input name="documento_ref" class="input" /></label>
+              <label>Prov/Cliente <input name="proveedor_cliente" class="input" /></label>
+              <div class="row span-2">
+                <button type="submit" class="btn primary">REGISTRAR</button>
+                <button type="button" id="contClear" class="btn ghost">LIMPIAR</button>
+                <button type="button" id="contExport" class="btn">Exportar CSV</button>
+              </div>
+            </form>
+            <div class="kpis" id="contResumen"></div>
+            <div class="row">
+              <select id="contFilter" class="input">
+                <option value="">TODOS</option><option>INGRESO</option><option>GASTO</option>
+              </select>
+              <input id="contSearch" class="input grow" placeholder="Buscar..." />
+            </div>
+            <div class="table-wrap">
+              <table id="contTable">
+                <thead>
+                  <tr>
+                    <th>Fecha</th><th>Tipo</th><th>Categoria</th><th>Descripcion</th>
+                    <th>Monto CRC</th><th>Monto USD</th><th>Doc</th><th>Prov/Cli</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- PEDIDOS -->
+      <section id="view-pedidos" class="view">
+        <div class="panel">
+          <div class="panel-head">PEDIDOS PENDIENTES POR ENTREGAR</div>
+          <div class="panel-body">
+            <form id="pedForm" class="form-grid">
+              <label>Cliente <input name="cliente_nombre" class="input" required /></label>
+              <label>Telefono <input name="telefono" class="input" /></label>
+              <label>Producto <select name="producto_id" class="input" id="pedProducto"></select></label>
+              <label>Cantidad <input name="cantidad_solicitada" class="input" type="number" min="1" step="1" value="1" /></label>
+              <label>Entrega estimada <input name="fecha_entrega_estimada" class="input" type="date" /></label>
+              <label class="span-2">Observaciones <input name="observaciones" class="input" /></label>
+              <div class="row span-2">
+                <button type="submit" class="btn primary">REGISTRAR PEDIDO</button>
+                <button type="button" id="pedEntregar" class="btn">MARCAR ENTREGADO</button>
+                <button type="button" id="pedCancelar" class="btn danger">CANCELAR PEDIDO</button>
+              </div>
+            </form>
+            <div class="table-wrap">
+              <table id="pedTable">
+                <thead>
+                  <tr>
+                    <th>ID</th><th>Fecha</th><th>Cliente</th><th>Producto</th>
+                    <th>Solicitado</th><th>Entregado</th><th>Estado</th><th>Entrega Est.</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- DEVOLUCIONES -->
+      <section id="view-devoluciones" class="view">
+        <div class="panel">
+          <div class="panel-head">DEVOLUCIONES DE PRODUCTOS</div>
+          <div class="panel-body">
+            <form id="devForm" class="form-grid">
+              <label>Factura <select name="factura" class="input" id="devFactura"></select></label>
+              <label>Producto <select name="producto" class="input" id="devProducto"></select></label>
+              <label>Cantidad <input name="cantidad" class="input" type="number" min="1" step="1" value="1" /></label>
+              <label>Motivo <input name="motivo" class="input" required /></label>
+              <div class="row span-2">
+                <button type="submit" class="btn danger">REGISTRAR DEVOLUCION</button>
+              </div>
+            </form>
+            <div class="table-wrap">
+              <table id="devTable">
+                <thead>
+                  <tr><th>Fecha</th><th>Factura</th><th>Producto</th><th>Motivo</th><th>Estado</th></tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SERIES -->
+      <section id="view-series" class="view">
+        <div class="panel">
+          <div class="panel-head">SERIES Y LOTES</div>
+          <div class="panel-body">
+            <form id="serForm" class="form-grid">
+              <label>Producto <select name="producto_id" class="input" id="serProducto"></select></label>
+              <label>N.Serie <input name="numero_serie" class="input" required /></label>
+              <label>Lote <input name="lote" class="input" /></label>
+              <label>Cantidad <input name="cantidad" class="input" type="number" step="0.01" value="1" /></label>
+              <label>Ubicacion <input name="ubicacion" class="input" /></label>
+              <label>Vence <input name="fecha_vencimiento" class="input" type="date" /></label>
+              <div class="row span-2">
+                <button type="submit" class="btn primary">REGISTRAR</button>
+                <button type="button" id="serDelete" class="btn danger">ELIMINAR</button>
+              </div>
+            </form>
+            <div class="table-wrap">
+              <table id="serTable">
+                <thead>
+                  <tr>
+                    <th>ID</th><th>Producto</th><th>N.Serie</th><th>Lote</th>
+                    <th>Cant</th><th>Ubicacion</th><th>Vence</th><th>Estado</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- REPORTES -->
+      <section id="view-reportes" class="view">
+        <div class="panel">
+          <div class="panel-head">REPORTES</div>
+          <div class="panel-body">
+            <div class="row" id="repButtons">
+              <button class="btn" data-rep="inventario">Inventario Actual</button>
+              <button class="btn" data-rep="stock_bajo">Stock Bajo</button>
+              <button class="btn" data-rep="kardex">Kardex General</button>
+              <button class="btn" data-rep="ventas">Ventas Periodo</button>
+              <button class="btn" data-rep="proveedores">Mov. Proveedores</button>
+              <button class="btn" data-rep="costos">Analisis de Costos</button>
+              <button class="btn" id="repExport">Descargar CSV</button>
+            </div>
+            <pre id="repOut" class="report-out">Seleccione un reporte.</pre>
+          </div>
+        </div>
+      </section>
+
+      <!-- GRAFICOS -->
+      <section id="view-graficos" class="view">
+        <div class="panel">
+          <div class="panel-head">REPORTES GRAFICOS</div>
+          <div class="panel-body">
+            <div class="row" id="grafButtons">
+              <button class="btn" data-graf="ventas_mes">Ventas por Mes</button>
+              <button class="btn" data-graf="top">Top Productos</button>
+              <button class="btn" data-graf="ing_gasto">Ingresos vs Gastos</button>
+              <button class="btn" data-graf="stock_cat">Stock por Categoria</button>
+              <button class="btn" data-graf="moneda">Ventas por Moneda</button>
+            </div>
+            <div class="chart-box" id="grafOut">
+              <p class="hint">Seleccione un grafico.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- CONFIG -->
+      <section id="view-config" class="view">
+        <div class="panel">
+          <div class="panel-head">CONFIGURACION</div>
+          <div class="panel-body">
+            <div class="tabs" id="cfgTabs">
+              <button class="tab active" data-tab="general">General</button>
+              <button class="tab" data-tab="empresa">Empresa</button>
+              <button class="tab" data-tab="factura">Factura</button>
+              <button class="tab" data-tab="modulos">Modulos</button>
+              <button class="tab" data-tab="datos">Datos</button>
+            </div>
+
+            <form id="cfgForm" class="tab-panel active" data-panel="general">
+              <div class="form-grid">
+                <label>Tipo de cambio <input name="tipo_cambio" class="input" type="number" step="0.01" /></label>
+                <label>IVA % <input name="iva" class="input" type="number" step="0.01" /></label>
+                <label>Moneda local <input name="moneda_local" class="input" /></label>
+                <label>Simbolo <input name="simbolo_local" class="input" /></label>
+                <label>Tema
+                  <select name="theme" class="input" id="cfgTheme">
+                    <option value="claro">Claro (Bosque)</option>
+                    <option value="oscuro">Oscuro</option>
+                    <option value="bosque">Bosque</option>
+                  </select>
+                </label>
+                <div class="row span-2">
+                  <button type="submit" class="btn primary">GUARDAR</button>
+                  <button type="button" id="cfgResetIva" class="btn ghost">IVA 12</button>
+                  <button type="button" id="cfgResetTc" class="btn ghost">TC 520</button>
+                </div>
+              </div>
+            </form>
+
+            <form id="cfgEmpresa" class="tab-panel" data-panel="empresa">
+              <div class="form-grid">
+                <label class="span-2">Nombre empresa <input name="nombre_empresa" class="input" /></label>
+                <label>NIT <input name="nit" class="input" /></label>
+                <label>Telefono <input name="telefono" class="input" /></label>
+                <label class="span-2">Direccion <input name="direccion" class="input" /></label>
+                <label>Email <input name="email" class="input" /></label>
+                <label>Sitio web <input name="sitio_web" class="input" /></label>
+                <div class="row span-2">
+                  <button type="submit" class="btn primary">GUARDAR EMPRESA</button>
+                </div>
+              </div>
+            </form>
+
+            <form id="cfgFactura" class="tab-panel" data-panel="factura">
+              <div class="form-grid">
+                <label>Titulo <input name="invoice_header" class="input" /></label>
+                <label>Pie <input name="invoice_footer" class="input" /></label>
+                <label class="span-2">Marca de agua <input name="invoice_watermark" class="input" /></label>
+                <label>Color encabezado <input name="invoice_color" class="input" type="color" /></label>
+                <label>Font size <input name="invoice_font_size" class="input" type="number" min="8" max="20" /></label>
+                <label>Papel
+                  <select name="invoice_paper" class="input">
+                    <option value="ticket">Ticket 58mm</option>
+                    <option value="carta">Carta</option>
+                  </select>
+                </label>
+                <label class="checks span-2">
+                  <span><input type="checkbox" name="show_numero" /> Numero</span>
+                  <span><input type="checkbox" name="show_fecha" /> Fecha</span>
+                  <span><input type="checkbox" name="show_nit" /> NIT</span>
+                  <span><input type="checkbox" name="show_cliente" /> Cliente</span>
+                  <span><input type="checkbox" name="show_direccion" /> Direccion</span>
+                  <span><input type="checkbox" name="show_telefono" /> Telefono</span>
+                  <span><input type="checkbox" name="show_subtotal" /> Subtotal</span>
+                  <span><input type="checkbox" name="show_iva" /> IVA</span>
+                  <span><input type="checkbox" name="show_tc" /> Tipo de cambio</span>
+                </label>
+                <div class="row span-2">
+                  <button type="submit" class="btn primary">GUARDAR FACTURA CONFIG</button>
+                </div>
+              </div>
+            </form>
+
+            <div class="tab-panel" data-panel="modulos">
+              <div class="form-grid" id="modToggles"></div>
+            </div>
+
+            <div class="tab-panel" data-panel="datos">
+              <div class="row">
+                <button type="button" class="btn" id="cfgExportJson">Exportar config JSON</button>
+                <button type="button" class="btn danger" id="cfgResetDb">Restablecer datos demo</button>
+              </div>
+              <div class="card mt">
+                <strong>Sistema</strong>
+                <p id="cfgSystemInfo" class="hint"></p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="statusbar">
+      <span id="statusMsg">Listo</span>
+      <span id="statusClock"></span>
+    </footer>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+
+  <!-- Modal ticket / cotizacion / factura -->
+  <div id="printModal" class="modal hidden">
+    <div class="modal-card">
+      <div class="modal-head" id="printTitle">Ticket</div>
+      <pre id="printBody" class="print-body"></pre>
+      <div class="modal-actions">
+        <button class="btn" id="printCopy">Copiar</button>
+        <button class="btn primary" id="printWindow">Imprimir</button>
+        <button class="btn ghost" id="printClose">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="/js/app.js"></script>
+</body>
+</html>
